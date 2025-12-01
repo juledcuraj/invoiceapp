@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rechnung {{invoice.number}}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .company-info {
+            width: 45%;
+        }
+        
+        .property-info {
+            width: 45%;
+            text-align: right;
+        }
+        
+        .company-info h1 {
+            font-size: 18px;
+            margin: 0 0 10px 0;
+            color: #2563eb;
+        }
+        
+        .invoice-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 30px 0;
+            color: #1f2937;
+        }
+        
+        .invoice-details {
+            display: flex;
+            justify-content: space-between;
+            margin: 30px 0;
+        }
+        
+        .guest-info {
+            width: 45%;
+        }
+        
+        .invoice-meta {
+            width: 45%;
+        }
+        
+        .guest-info h3,
+        .invoice-meta h3 {
+            font-size: 14px;
+            margin: 0 0 10px 0;
+            color: #374151;
+        }
+        
+        .service-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+        }
+        
+        .service-table th,
+        .service-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .service-table th {
+            background-color: #f9fafb;
+            font-weight: bold;
+            color: #374151;
+        }
+        
+        .amount-table {
+            width: 50%;
+            margin-left: auto;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .amount-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .amount-table .label {
+            font-weight: normal;
+        }
+        
+        .amount-table .amount {
+            text-align: right;
+            font-weight: bold;
+        }
+        
+        .total-row {
+            background-color: #f9fafb;
+            border-top: 2px solid #2563eb;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .tax-info {
+            margin: 30px 0;
+            padding: 15px;
+            background-color: #f0f9ff;
+            border-left: 4px solid #2563eb;
+        }
+        
+        .bank-info {
+            margin: 30px 0;
+            padding: 15px;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .bank-info h3 {
+            margin: 0 0 10px 0;
+            color: #374151;
+        }
+        
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 10px;
+            color: #6b7280;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .text-small {
+            font-size: 11px;
+            color: #6b7280;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            .footer {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-info">
+            <h1>{{company.legalName}}</h1>
+            <div>{{company.address}}</div>
+            <br>
+            <div><strong>E-Mail:</strong> {{company.email}}</div>
+            <div><strong>Telefon:</strong> {{company.phone}}</div>
+            <div><strong>UID:</strong> {{company.taxId}}</div>
+        </div>
+        
+        <div class="property-info">
+            <h3>Objekt / Property</h3>
+            <div><strong>{{property.name}}</strong></div>
+            <div>{{property.address}}</div>
+        </div>
+    </div>
+    
+    <div class="invoice-title">
+        RECHNUNG / INVOICE
+    </div>
+    
+    <div class="invoice-details">
+        <div class="guest-info">
+            <h3>Rechnungsempfänger / Bill To:</h3>
+            <div><strong>{{guest.name}}</strong></div>
+            {{guest.address}}
+            <br>
+            {{guest.country}}
+            <div class="text-small">
+                <br>
+                <strong>Reservierung:</strong> {{reservationId}}
+            </div>
+        </div>
+        
+        <div class="invoice-meta">
+            <h3>Rechnungsdetails / Invoice Details:</h3>
+            <div><strong>Rechnungsnummer:</strong> {{invoice.number}}</div>
+            <div><strong>Rechnungsdatum:</strong> {{invoice.date}}</div>
+            <div><strong>Leistungszeitraum:</strong></div>
+            <div>{{service.period}} ({{service.nights}} Nächte)</div>
+        </div>
+    </div>
+    
+    <table class="service-table">
+        <thead>
+            <tr>
+                <th>Leistung / Service</th>
+                <th>Zeitraum / Period</th>
+                <th>Nächte / Nights</th>
+                <th class="text-right">Betrag / Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{service.description}}</td>
+                <td>{{service.period}}</td>
+                <td>{{service.nights}}</td>
+                <td class="text-right">{{amounts.gross}}</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <table class="amount-table">
+        <tr>
+            <td class="label"><strong>Bruttobetrag / Gross Amount:</strong></td>
+            <td class="amount"><strong>{{amounts.gross}}</strong></td>
+        </tr>
+        <tr>
+            <td class="label">Ortstaxe {{cityTaxRate}}% / City Tax {{cityTaxRate}}%:</td>
+            <td class="amount">{{amounts.cityTax}}</td>
+        </tr>
+        <tr>
+            <td class="label">Umsatzsteuer {{vatRate}}% / VAT {{vatRate}}%:</td>
+            <td class="amount">{{amounts.vat}}</td>
+        </tr>
+        <tr>
+            <td class="label">Nettobetrag / Net Amount:</td>
+            <td class="amount">{{amounts.net}}</td>
+        </tr>
+    </table>
+    
+    <div class="tax-info">
+        <strong>Steuerliche Hinweise / Tax Information:</strong><br>
+        Diese Rechnung enthält {{vatRate}}% Umsatzsteuer und {{cityTaxRate}}% Ortstaxe.<br>
+        <em>This invoice includes {{vatRate}}% VAT and {{cityTaxRate}}% city tax.</em>
+    </div>
+    
+    <div class="bank-info">
+        <h3>Bankverbindung / Bank Details:</h3>
+        <div><strong>Bank:</strong> {{company.bankName}}</div>
+        <div><strong>IBAN:</strong> {{company.iban}}</div>
+        <div><strong>BIC:</strong> {{company.bic}}</div>
+        <br>
+        <div class="text-small">
+            Zahlungsziel: 14 Tage netto / Payment term: 14 days net
+        </div>
+    </div>
+    
+    <div class="footer">
+        {{company.footerText}}
+        <br><br>
+        Erstellt am: {{invoice.date}} | Created on: {{invoice.date}}
+    </div>
+</body>
+</html>

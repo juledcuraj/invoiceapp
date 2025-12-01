@@ -1,0 +1,13 @@
+{
+  "legalName": "Edelweiss City Apartments",
+  "address": "Musterstraße 123\n1010 Wien\nÖsterreich",
+  "email": "office@example-hotel.at",
+  "phone": "+43 1 234 5678",
+  "taxId": "ATU12345678",
+  "bankDetails": {
+    "bankName": "Erste Bank",
+    "iban": "AT611904300234573201",
+    "bic": "EASYATW1"
+  },
+  "footerText": "Vielen Dank für Ihren Aufenthalt! / Thank you for your stay!"
+}

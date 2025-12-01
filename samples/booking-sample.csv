@@ -1,0 +1,6 @@
+Type,"Reference number",Check-in,Checkout,"Guest name","Reservation status",Currency,"Payment status",Amount,Commission,"Payments Service Fee",Net,"Payout date","Payout ID"
+Reservation,6240107610,"30 Jun 2025","2 Jul 2025","John Smith",ok,EUR,by_booking,379.00,-55.48,-5.31,318.21,"3 Jul 2025",fGoiXBU7JkobxtXj
+Reservation,5353399989,"28 Jun 2025","1 Jul 2025","Maria Garcia",ok,EUR,by_booking,425.00,-62.16,-5.96,356.88,"3 Jul 2025",fGoiXBU7JkobxtXj
+Reservation,4560330581,"25 Jun 2025","28 Jun 2025","Hans Mueller",ok,EUR,by_booking,189.90,-27.80,-2.66,159.44,"3 Jul 2025",fGoiXBU7JkobxtXj
+Reservation,6382768686,"20 Jun 2025","23 Jun 2025","Sophie Dubois",ok,EUR,by_booking,356.25,-52.06,-4.99,299.20,"3 Jul 2025",fGoiXBU7JkobxtXj
+Reservation,5662282666,"18 Jun 2025","21 Jun 2025","Pietro Rossi",ok,EUR,by_booking,234.80,-34.34,-3.29,197.17,"3 Jul 2025",fGoiXBU7JkobxtXj

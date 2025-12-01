@@ -1,0 +1,11 @@
+[
+  {
+    "id": "apt01",
+    "name": "Apartment Vienna Central",
+    "address": "Graben 15\n1010 Wien\nÖsterreich",
+    "invoicePrefix": "APT01",
+    "vatRate": 0.1,
+    "cityTaxRate": 0.032,
+    "cityTaxMode": "SIMPLE"
+  }
+]
