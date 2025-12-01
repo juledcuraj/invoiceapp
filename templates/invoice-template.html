@@ -7,17 +7,17 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            font-size: 12px;
-            line-height: 1.4;
+            font-size: 11px;
+            line-height: 1.3;
             color: #333;
             margin: 0;
-            padding: 20px;
+            padding: 15px;
         }
         
         .header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
         
         .company-info {
@@ -37,16 +37,16 @@
         
         .invoice-title {
             text-align: center;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
-            margin: 30px 0;
+            margin: 20px 0;
             color: #1f2937;
         }
         
         .invoice-details {
             display: flex;
             justify-content: space-between;
-            margin: 30px 0;
+            margin: 20px 0;
         }
         
         .guest-info {
@@ -112,31 +112,35 @@
         }
         
         .tax-info {
-            margin: 30px 0;
-            padding: 15px;
+            margin: 15px 0;
+            padding: 8px 12px;
             background-color: #f0f9ff;
-            border-left: 4px solid #2563eb;
+            border-left: 3px solid #2563eb;
+            font-size: 10px;
         }
         
         .bank-info {
-            margin: 30px 0;
-            padding: 15px;
+            margin: 15px 0;
+            padding: 8px 12px;
             background-color: #f9fafb;
             border: 1px solid #e5e7eb;
+            font-size: 10px;
         }
         
         .bank-info h3 {
-            margin: 0 0 10px 0;
+            margin: 0 0 5px 0;
             color: #374151;
+            font-size: 11px;
         }
         
         .footer {
-            margin-top: 50px;
-            padding-top: 20px;
+            margin-top: 20px;
+            padding-top: 10px;
             border-top: 1px solid #e5e7eb;
             text-align: center;
-            font-size: 10px;
+            font-size: 9px;
             color: #6b7280;
+            page-break-inside: avoid;
         }
         
         .text-right {
@@ -144,8 +148,29 @@
         }
         
         .text-small {
-            font-size: 11px;
+            font-size: 10px;
             color: #6b7280;
+        }
+        
+        /* Ensure single page layout */
+        @media print {
+            body {
+                font-size: 10px;
+                line-height: 1.2;
+            }
+            .header, .invoice-details, .service-table, .amount-table {
+                page-break-inside: avoid;
+            }
+            .tax-info, .bank-info {
+                page-break-inside: avoid;
+                margin: 10px 0;
+            }
+            .footer {
+                position: fixed;
+                bottom: 0;
+                width: 100%;
+                margin-top: 0;
+            }
         }
         
         @media print {
@@ -218,6 +243,12 @@
                 <td>{{service.nights}}</td>
                 <td class="text-right">{{amounts.gross}}</td>
             </tr>
+            <tr>
+                <td colspan="3" class="text-small" style="padding-left: 20px; font-style: italic;">
+                    Servicegebühr inkludiert: {{property.serviceFee}} EUR / Service Fee included: {{property.serviceFee}} EUR
+                </td>
+                <td></td>
+            </tr>
         </tbody>
     </table>
     
@@ -241,20 +272,13 @@
     </table>
     
     <div class="tax-info">
-        <strong>Steuerliche Hinweise / Tax Information:</strong><br>
-        Diese Rechnung enthält {{vatRate}}% Umsatzsteuer und {{cityTaxRate}}% Ortstaxe.<br>
-        <em>This invoice includes {{vatRate}}% VAT and {{cityTaxRate}}% city tax.</em>
+        <strong>Steuerinfo:</strong> {{vatRate}}% USt. + {{cityTaxRate}}% Ortstaxe | <strong>Tax Info:</strong> {{vatRate}}% VAT + {{cityTaxRate}}% City Tax
     </div>
     
     <div class="bank-info">
         <h3>Bankverbindung / Bank Details:</h3>
-        <div><strong>Bank:</strong> {{company.bankName}}</div>
-        <div><strong>IBAN:</strong> {{company.iban}}</div>
-        <div><strong>BIC:</strong> {{company.bic}}</div>
-        <br>
-        <div class="text-small">
-            Zahlungsziel: 14 Tage netto / Payment term: 14 days net
-        </div>
+        <strong>{{company.bankName}}</strong> | IBAN: {{company.iban}} | BIC: {{company.bic}}<br>
+        <span class="text-small">Zahlungsziel: 14 Tage netto / Payment term: 14 days net</span>
     </div>
     
     <div class="footer">

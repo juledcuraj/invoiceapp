@@ -87,6 +87,7 @@ function renderInvoiceHTML(invoice: Invoice, template: string): string {
     // Property details
     .replace(/{{property\.name}}/g, invoice.property.name)
     .replace(/{{property\.address}}/g, invoice.property.address.replace(/\n/g, '<br>'))
+    .replace(/{{property\.serviceFee}}/g, formatCurrency(invoice.property.serviceFee || 0, invoice.amounts.currency))
     
     // Invoice details
     .replace(/{{invoice\.number}}/g, invoice.invoiceNumber)

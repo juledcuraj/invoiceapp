@@ -1,0 +1,65 @@
+{
+  "company": {
+    "legalName": "Example Hotel GmbH",
+    "address": "Musterstraße 123\n1010 Wien\nÖsterreich",
+    "uid": "ATU12345678",
+    "email": "office@example-hotel.at",
+    "phone": "+43 1 234 5678",
+    "website": "https://example-hotel.at",
+    "bankDetails": {
+      "bankName": "Erste Bank",
+      "iban": "AT611904300234573201",
+      "bic": "EASYATW1"
+    },
+    "invoiceFooter": "Vielen Dank für Ihren Aufenthalt! / Thank you for your stay!"
+  },
+  "properties": [
+    {
+      "id": "apt01-vienna-center",
+      "name": "Apartment Vienna Center",
+      "address": "Graben 15\n1010 Wien\nÖsterreich",
+      "invoicePrefix": "APT01",
+      "defaultCurrency": "EUR",
+      "vatRate": 0.10,
+      "cityTaxRate": 0.032,
+      "cityTaxHandling": "SIMPLE",
+      "serviceFee": 25.00,
+      "active": true
+    },
+    {
+      "id": "studio02-mariahilf",
+      "name": "Studio Mariahilf District",
+      "address": "Mariahilfer Straße 88\n1060 Wien\nÖsterreich",
+      "invoicePrefix": "STU02",
+      "defaultCurrency": "EUR",
+      "vatRate": 0.10,
+      "cityTaxRate": 0.032,
+      "cityTaxHandling": "VIENNA_METHOD",
+      "serviceFee": 30.00,
+      "active": true
+    }
+  ],
+  "taxRules": {
+    "defaultVatRate": 0.10,
+    "defaultCityTaxRate": 0.032,
+    "cityTaxHandlingModes": ["SIMPLE", "VIENNA_METHOD"],
+    "defaultCityTaxHandling": "SIMPLE",
+    "vatIncludedInGross": true,
+    "cityTaxCollectionMethod": "ADD_TO_TOTAL"
+  },
+  "counters": {
+    "apt01-vienna-center": {
+      "2024": 156,
+      "2025": 89
+    },
+    "studio02-mariahilf": {
+      "2024": 203,
+      "2025": 134
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdated": "2025-12-01T10:00:00.000Z",
+    "createdBy": "invoice-generator-v1"
+  }
+}
