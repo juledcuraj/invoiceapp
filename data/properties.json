@@ -6,8 +6,7 @@
     "invoicePrefix": "BEGA23",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD",
-    "serviceFee": 55
+    "cityTaxMode": "VIENNA_METHOD"
   },
   {
     "id": "min2gzrw5jk0v9qqze3",
@@ -16,8 +15,7 @@
     "invoicePrefix": "WALF10",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD",
-    "serviceFee": 49
+    "cityTaxMode": "VIENNA_METHOD"
   },
   {
     "id": "min2igkkgvg6pzcwwvi",
@@ -26,8 +24,7 @@
     "invoicePrefix": "LASS25",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD",
-    "serviceFee": 45
+    "cityTaxMode": "VIENNA_METHOD"
   },
   {
     "id": "min2k2kh8w5yhcyuswe",
@@ -36,8 +33,7 @@
     "invoicePrefix": "KRA03",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD",
-    "serviceFee": 45
+    "cityTaxMode": "VIENNA_METHOD"
   },
   {
     "id": "min2ltvekfxzpyju8dk",
@@ -46,8 +42,7 @@
     "invoicePrefix": "BMARKT",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD",
-    "serviceFee": 55
+    "cityTaxMode": "VIENNA_METHOD"
   },
   {
     "id": "min2n6fvh134twkyncj",
@@ -56,8 +51,7 @@
     "invoicePrefix": "KLIE09",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD",
-    "serviceFee": 35
+    "cityTaxMode": "VIENNA_METHOD"
   },
   {
     "id": "min2o8rqw1mjp3vgfua",
@@ -66,8 +60,7 @@
     "invoicePrefix": "LAMM44",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD",
-    "serviceFee": 0
+    "cityTaxMode": "VIENNA_METHOD"
   },
   {
     "id": "min2qh8b3gupei5i2cn",
@@ -76,7 +69,6 @@
     "invoicePrefix": "ZIMM17",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD",
-    "serviceFee": 0
+    "cityTaxMode": "VIENNA_METHOD"
   }
 ]

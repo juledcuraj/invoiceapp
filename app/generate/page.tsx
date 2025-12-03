@@ -13,6 +13,13 @@ export default function Generate() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
 
+  // Booking converter state
+  const [bookingCsvFile, setBookingCsvFile] = useState<File | null>(null)
+  const [startBelegnr, setStartBelegnr] = useState<number>(2251)
+  const [useCommaDecimal, setUseCommaDecimal] = useState<boolean>(true)  // Default to comma for Austrian standard
+  const [convertingBooking, setConvertingBooking] = useState(false)
+  const [bookingMessage, setBookingMessage] = useState('')
+
   useEffect(() => {
     loadProperties()
   }, [])
@@ -113,6 +120,65 @@ export default function Generate() {
     }
   }
 
+  const handleBookingFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setBookingMessage('Please select a CSV file')
+      return
+    }
+
+    setBookingCsvFile(file)
+    setBookingMessage('')
+  }
+
+  const convertBookingCSV = async () => {
+    if (!bookingCsvFile) {
+      setBookingMessage('Please select a file first')
+      return
+    }
+
+    setConvertingBooking(true)
+    setBookingMessage('Converting to accounting format...')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', bookingCsvFile)
+      formData.append('startBelegnr', startBelegnr.toString())
+      formData.append('useCommaDecimal', useCommaDecimal.toString())
+
+      const response = await fetch('/api/convert-booking', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        
+        const a = document.createElement('a')
+        a.style.display = 'none'
+        a.href = url
+        a.download = `accounting_export_${Date.now()}.csv`
+        
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        
+        setBookingMessage('Accounting CSV generated and downloaded successfully!')
+      } else {
+        const error = await response.text()
+        setBookingMessage(`Error converting CSV: ${error}`)
+      }
+    } catch (error) {
+      setBookingMessage('Error converting CSV')
+    } finally {
+      setConvertingBooking(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -175,8 +241,8 @@ export default function Generate() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Generate Invoices</h1>
-              <p className="mt-2 text-gray-600">Upload CSV and generate PDF invoices</p>
+              <h1 className="text-3xl font-bold text-gray-900">CSV Converters</h1>
+              <p className="mt-2 text-gray-600">Convert Booking.com exports to invoices and accounting formats</p>
             </div>
             <Link
               href="/"
@@ -372,8 +438,8 @@ export default function Generate() {
         )}
 
         {/* Instructions */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Instructions</h3>
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Converter #1: CSV → PDF Invoices</h3>
           <div className="prose prose-sm text-gray-600">
             <ol className="list-decimal list-inside space-y-2">
               <li>Select the property for which you want to generate invoices</li>
@@ -387,6 +453,121 @@ export default function Generate() {
                 <strong>Note:</strong> Make sure your CSV file contains the required columns: 
                 Reservation ID, Guest Name, Check-in Date, Check-out Date, and Amount.
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Converter #2: Booking to Accounting CSV */}
+        <div className="border-t-4 border-blue-600 bg-white rounded-lg shadow p-6">
+          <div className="mb-6">
+            <h3 className="text-2xl font-semibold text-gray-900 mb-2">Converter #2: Booking → Accounting CSV</h3>
+            <p className="text-gray-600">Convert Booking.com reservations export into accounting import format (3 lines per reservation)</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* File Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Booking.com Reservations CSV *
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleBookingFileUpload}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Upload CSV with columns: Property name, Location, Booker name, Arrival, Departure, Total payment, Currency, Reservation number
+              </p>
+              
+              {bookingCsvFile && (
+                <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
+                  <p className="text-sm text-green-700">
+                    <strong>File:</strong> {bookingCsvFile.name} ({(bookingCsvFile.size / 1024).toFixed(1)} KB)
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Settings */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Start Belegnr (Voucher Number)
+                </label>
+                <input
+                  type="number"
+                  value={startBelegnr}
+                  onChange={(e) => setStartBelegnr(parseInt(e.target.value) || 2251)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="2251"
+                />
+                <p className="text-xs text-gray-500 mt-1">Starting number for voucher numbering</p>
+              </div>
+
+              <div>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={useCommaDecimal}
+                    onChange={(e) => setUseCommaDecimal(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Use comma as decimal separator (e.g., 917,34)</span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1">Austrian accounting standard</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Convert Button */}
+          <div className="mb-6">
+            <button
+              onClick={convertBookingCSV}
+              disabled={!bookingCsvFile || convertingBooking}
+              className="inline-flex items-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200"
+            >
+              {convertingBooking ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Converting...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Convert and Download
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Booking Messages */}
+          {bookingMessage && (
+            <div className={`p-4 rounded-lg mb-6 ${
+              bookingMessage.includes('Error') || bookingMessage.includes('error') 
+                ? 'bg-red-50 text-red-700 border border-red-200' 
+                : bookingMessage.includes('successfully')
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'bg-blue-50 text-blue-700 border border-blue-200'
+            }`}>
+              {bookingMessage}
+            </div>
+          )}
+
+          {/* Instructions */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-gray-900 mb-3">Output Format:</h4>
+            <div className="text-xs text-gray-600 space-y-2">
+              <p><strong>Columns:</strong> konto, belegnr, belegdat, symbol, betrag, steuer, text</p>
+              <p><strong>Tax Logic:</strong> netto = brutto ÷ 1.132, then VAT = netto × 10%, City Tax = netto × 3.2%</p>
+              <p><strong>Per Reservation:</strong> 3 rows generated (Revenue 200000, Net Revenue 8001 with VAT, City Tax 8003)</p>
+              <p><strong>Format:</strong> Semicolon-separated CSV with quoted decimal values for Excel compatibility</p>
+              <p><strong>Excel Import:</strong> Use dot separator for best compatibility when importing to Excel</p>
             </div>
           </div>
         </div>

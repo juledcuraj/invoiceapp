@@ -63,12 +63,9 @@ export async function PUT(request: NextRequest) {
         name: prop.name,
         address: prop.address,
         invoicePrefix: prop.invoicePrefix.toUpperCase(),
-        defaultCurrency: prop.defaultCurrency || 'EUR',
         vatRate: prop.vatRate,
         cityTaxRate: prop.cityTaxRate,
-        cityTaxHandling: prop.cityTaxHandling,
-        serviceFee: prop.serviceFee || 0,
-        active: prop.active !== false // Default to true if not specified
+        cityTaxMode: prop.cityTaxMode || 'SIMPLE'
       };
       
       validatedProperties.push(validatedProperty);

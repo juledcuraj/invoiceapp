@@ -26,7 +26,6 @@ export const PropertySchema = z.object({
   vatRate: z.number().min(0).max(1).default(0.10), // 10%
   cityTaxRate: z.number().min(0).max(1).default(0.032), // 3.2%
   cityTaxMode: z.enum(['SIMPLE', 'VIENNA_METHOD']).default('SIMPLE'),
-  serviceFee: z.number().min(0).default(0), // Service fee in EUR
 });
 
 export type Property = z.infer<typeof PropertySchema>;

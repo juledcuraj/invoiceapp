@@ -241,21 +241,15 @@
                 <td>{{service.description}}</td>
                 <td>{{service.period}}</td>
                 <td>{{service.nights}}</td>
-                <td class="text-right">{{amounts.gross}}</td>
-            </tr>
-            <tr>
-                <td colspan="3" class="text-small" style="padding-left: 20px; font-style: italic;">
-                    Servicegebühr inkludiert: {{property.serviceFee}} EUR / Service Fee included: {{property.serviceFee}} EUR
-                </td>
-                <td></td>
+                <td class="text-right">{{amounts.net}}</td>
             </tr>
         </tbody>
     </table>
     
     <table class="amount-table">
         <tr>
-            <td class="label"><strong>Bruttobetrag / Gross Amount:</strong></td>
-            <td class="amount"><strong>{{amounts.gross}}</strong></td>
+            <td class="label"><strong>Nettobetrag / Net Amount:</strong></td>
+            <td class="amount"><strong>{{amounts.net}}</strong></td>
         </tr>
         <tr>
             <td class="label">Ortstaxe {{cityTaxRate}}% / City Tax {{cityTaxRate}}%:</td>
@@ -266,8 +260,8 @@
             <td class="amount">{{amounts.vat}}</td>
         </tr>
         <tr>
-            <td class="label">Nettobetrag / Net Amount:</td>
-            <td class="amount">{{amounts.net}}</td>
+            <td class="label"><strong>Bruttobetrag / Gross Amount:</strong></td>
+            <td class="amount"><strong>{{amounts.gross}}</strong></td>
         </tr>
     </table>
     

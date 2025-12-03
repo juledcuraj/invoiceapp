@@ -14,27 +14,21 @@ export function calculateTaxes(
   cityTaxRate: number = 0.032,
   cityTaxMode: CityTaxMode = 'SIMPLE'
 ): TaxCalculation {
-  // Calculate net amount (remove VAT from gross)
-  const netAmount = grossAmount / (1 + vatRate);
-  const vatAmount = grossAmount - netAmount;
-
-  // Calculate city tax
-  let cityTaxAmount: number;
+  // New tax logic: Gross amount from Booking.com already includes both VAT and City Tax
+  // Both taxes are calculated as percentages of the net amount (not gross)
   
-  switch (cityTaxMode) {
-    case 'SIMPLE':
-      // Simple mode: city tax as percentage of gross amount
-      cityTaxAmount = grossAmount * cityTaxRate;
-      break;
-    case 'VIENNA_METHOD':
-      // Vienna method: city tax based on net amount
-      cityTaxAmount = netAmount * cityTaxRate;
-      break;
-    default:
-      cityTaxAmount = grossAmount * cityTaxRate;
-  }
-
-  const totalAmount = grossAmount + cityTaxAmount;
+  // 1) Compute Netto: netto = brutto / (1 + cityTaxRate + vatRate)
+  const netAmount = grossAmount / (1 + cityTaxRate + vatRate);
+  
+  // 2) Compute City Tax: ortstaxe = netto * cityTaxRate
+  const cityTaxAmount = netAmount * cityTaxRate;
+  
+  // 3) Compute VAT: vat = netto * vatRate
+  const vatAmount = netAmount * vatRate;
+  
+  // 4) Recalculate Gross (check): gross = netto + ortstaxe + vat
+  // This should equal the original grossAmount
+  const totalAmount = netAmount + cityTaxAmount + vatAmount;
 
   return {
     netAmount: Math.round(netAmount * 100) / 100,
