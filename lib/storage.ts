@@ -23,6 +23,22 @@ export async function getCompany(): Promise<Company | null> {
     const data = await fs.readFile(COMPANY_FILE, 'utf-8');
     return JSON.parse(data);
   } catch {
+    // Fallback company data for serverless environments
+    if (process.env.NODE_ENV === 'production' || process.env.NETLIFY) {
+      return {
+        legalName: 'Your Company Name',
+        address: 'Your Address\\nCity, Country',
+        email: 'contact@yourcompany.com',
+        phone: '+43 1 234 5678',
+        taxId: 'AT12345678',
+        bankDetails: {
+          bankName: 'Your Bank',
+          iban: 'AT12 3456 7890 1234 5678',
+          bic: 'ABCDEFGH'
+        },
+        footerText: 'Thank you for your business!'
+      };
+    }
     return null;
   }
 }
@@ -39,6 +55,23 @@ export async function getProperties(): Promise<Property[]> {
     const data = await fs.readFile(PROPERTIES_FILE, 'utf-8');
     return JSON.parse(data);
   } catch {
+    // Fallback properties data for serverless environments
+    if (process.env.NODE_ENV === 'production' || process.env.NETLIFY) {
+      return [
+        {
+          id: 'default',
+          name: 'Default Property',
+          address: 'Property Address\nVienna, Austria',
+          invoicePrefix: 'INV',
+          defaultCurrency: 'EUR',
+          vatRate: 0.10,
+          cityTaxRate: 0.032,
+          cityTaxHandling: 'SIMPLE' as const,
+          serviceFee: 0,
+          active: true
+        }
+      ];
+    }
     return [];
   }
 }
@@ -93,23 +126,41 @@ export async function saveCounters(counters: Counters): Promise<void> {
 }
 
 export async function getNextInvoiceNumber(propertyId: string): Promise<string> {
-  const counters = await getCounters();
   const property = await getProperty(propertyId);
   
   if (!property) {
     throw new Error(`Property ${propertyId} not found`);
   }
 
-  const currentYear = new Date().getFullYear();
-  const counterKey = `${propertyId}-${currentYear}`;
-  const currentCounter = counters[counterKey] || 0;
-  const nextCounter = currentCounter + 1;
+  // For serverless deployment, use timestamp-based numbering instead of persistent counters
+  // This avoids file system writes in read-only environments like Netlify
+  if (process.env.NODE_ENV === 'production' || process.env.NETLIFY) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const timestamp = now.getTime().toString().slice(-6); // Last 6 digits of timestamp
+    return `${property.invoicePrefix}-${year}-${timestamp}`;
+  }
+  
+  // Development mode: try to use file-based counters
+  try {
+    const counters = await getCounters();
+    const currentYear = new Date().getFullYear();
+    const counterKey = `${propertyId}-${currentYear}`;
+    const currentCounter = counters[counterKey] || 0;
+    const nextCounter = currentCounter + 1;
 
-  // Update counter
-  counters[counterKey] = nextCounter;
-  await saveCounters(counters);
+    // Update counter
+    counters[counterKey] = nextCounter;
+    await saveCounters(counters);
 
-  // Format: PREFIX-YYYY-NNN
-  const paddedCounter = nextCounter.toString().padStart(3, '0');
-  return `${property.invoicePrefix}-${currentYear}-${paddedCounter}`;
+    // Format: PREFIX-YYYY-NNN
+    const paddedCounter = nextCounter.toString().padStart(3, '0');
+    return `${property.invoicePrefix}-${currentYear}-${paddedCounter}`;
+  } catch (error) {
+    // Fallback to timestamp if file system is not available
+    const now = new Date();
+    const year = now.getFullYear();
+    const timestamp = now.getTime().toString().slice(-6);
+    return `${property.invoicePrefix}-${year}-${timestamp}`;
+  }
 }

@@ -140,6 +140,36 @@ async function generatePDFFromHTML(html: string): Promise<Buffer> {
   return pdfBuffer;
 }
 
+async function generateCombinedPDF(invoices: Invoice[], template: string): Promise<Buffer> {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  
+  // Combine all invoice HTML with page breaks
+  const combinedHTML = invoices.map((invoice, index) => {
+    const invoiceHTML = renderInvoiceHTML(invoice, template);
+    // Add page break after each invoice except the last one
+    return index < invoices.length - 1 
+      ? invoiceHTML + '<div style="page-break-after: always;"></div>'
+      : invoiceHTML;
+  }).join('\n');
+  
+  await page.setContent(combinedHTML, { waitUntil: 'networkidle' });
+  
+  const pdfBuffer = await page.pdf({
+    format: 'A4',
+    margin: {
+      top: '1cm',
+      right: '1cm',
+      bottom: '1cm',
+      left: '1cm'
+    },
+    printBackground: true,
+  });
+  
+  await browser.close();
+  return pdfBuffer;
+}
+
 function generateSummaryCSV(invoices: Invoice[]): string {
   const headers = [
     'Invoice Number',
@@ -215,8 +245,19 @@ export async function generateInvoices(
     // Generate summary CSV
     const summaryCSV = generateSummaryCSV(invoices);
 
+    // Generate combined PDF with all invoices
+    let combinedPdfBuffer: Buffer | null = null;
+    if (invoices.length > 0) {
+      try {
+        combinedPdfBuffer = await generateCombinedPDF(invoices, template);
+      } catch (error) {
+        console.warn('Failed to generate combined PDF:', error);
+        errors.push('Failed to generate combined PDF');
+      }
+    }
+
     // Create ZIP file
-    const zipBuffer = await createZipFile(pdfBuffers, summaryCSV);
+    const zipBuffer = await createZipFile(pdfBuffers, summaryCSV, combinedPdfBuffer);
 
     return {
       success: errors.length === 0,
@@ -238,7 +279,8 @@ export async function generateInvoices(
 
 async function createZipFile(
   pdfBuffers: { filename: string; buffer: Buffer }[],
-  summaryCSV: string
+  summaryCSV: string,
+  combinedPdfBuffer?: Buffer | null
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -248,10 +290,16 @@ async function createZipFile(
     archive.on('end', () => resolve(Buffer.concat(chunks)));
     archive.on('error', reject);
 
-    // Add PDF files
+    // Add individual PDF files in a subfolder
     pdfBuffers.forEach(({ filename, buffer }) => {
-      archive.append(buffer, { name: filename });
+      archive.append(buffer, { name: `individual-invoices/${filename}` });
     });
+
+    // Add combined PDF with all invoices
+    if (combinedPdfBuffer) {
+      const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      archive.append(combinedPdfBuffer, { name: `all-invoices-${timestamp}.pdf` });
+    }
 
     // Add summary CSV
     archive.append(summaryCSV, { name: 'invoice-summary.csv' });
