@@ -212,7 +212,7 @@ export default function CsvToInvoice() {
                 <h4 className="font-medium text-blue-900 mb-2">CSV Parse Results</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
-                    <span className="text-blue-700">Total Rows:</span> {parseResult.totalRows}
+                    <span className="text-blue-700">Total Rows:</span> {parseResult.summary.total}
                   </div>
                   <div>
                     <span className="text-blue-700">Valid:</span> {parseResult.validRows.length}
@@ -222,8 +222,8 @@ export default function CsvToInvoice() {
                   </div>
                   <div>
                     <span className="text-blue-700">Success Rate:</span> {
-                      parseResult.totalRows > 0 
-                        ? Math.round((parseResult.validRows.length / parseResult.totalRows) * 100)
+                      parseResult.summary.total > 0 
+                        ? Math.round((parseResult.validRows.length / parseResult.summary.total) * 100)
                         : 0
                     }%
                   </div>

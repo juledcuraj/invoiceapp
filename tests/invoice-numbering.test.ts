@@ -23,7 +23,7 @@ describe('Invoice Numbering', () => {
           invoicePrefix: 'TEST01',
           vatRate: 0.10,
           cityTaxRate: 0.032,
-          cityTaxMode: 'SIMPLE'
+          cityTaxHandling: 'SIMPLE'
         }
       ]
       await fs.writeFile(TEST_PROPERTIES_FILE, JSON.stringify(testProperties, null, 2))

@@ -39,7 +39,7 @@ function createInvoiceData(
     csvRow.amountPaidGross,
     property.vatRate,
     property.cityTaxRate,
-    property.cityTaxMode
+    property.cityTaxHandling
   );
 
   const invoice: Invoice = {

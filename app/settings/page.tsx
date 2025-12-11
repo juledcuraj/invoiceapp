@@ -421,9 +421,12 @@ function PropertyForm({ property, onClose }: { property: Property | null; onClos
     name: '',
     address: '',
     invoicePrefix: '',
+    defaultCurrency: 'EUR',
     vatRate: 0.10,
     cityTaxRate: 0.032,
-    cityTaxMode: 'SIMPLE' as const
+    cityTaxHandling: 'SIMPLE' as const,
+    serviceFee: 0,
+    active: true
   })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -561,8 +564,8 @@ function PropertyForm({ property, onClose }: { property: Property | null; onClos
               City Tax Mode
             </label>
             <select
-              value={formData.cityTaxMode}
-              onChange={(e) => setFormData(prev => ({ ...prev, cityTaxMode: e.target.value as 'SIMPLE' | 'VIENNA_METHOD' }))}
+              value={formData.cityTaxHandling}
+              onChange={(e) => setFormData(prev => ({ ...prev, cityTaxHandling: e.target.value as 'SIMPLE' | 'VIENNA_METHOD' }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="SIMPLE">Simple</option>

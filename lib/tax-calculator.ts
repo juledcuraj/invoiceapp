@@ -12,7 +12,7 @@ export function calculateTaxes(
   grossAmount: number,
   vatRate: number = 0.10,
   cityTaxRate: number = 0.032,
-  cityTaxMode: CityTaxMode = 'SIMPLE'
+  cityTaxHandling: CityTaxMode = 'SIMPLE'
 ): TaxCalculation {
   // New tax logic: Gross amount from Booking.com already includes both VAT and City Tax
   // Both taxes are calculated as percentages of the net amount (not gross)

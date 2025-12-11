@@ -183,7 +183,7 @@ export function parseBookingCSV(csvContent: string): BookingCSVRow[] {
     if (!row) continue;
     
     // Parse each row properly respecting quotes
-    const values = [];
+    const values: string[] = [];
     let currentValue = '';
     let insideQuotesRow = false;
     
