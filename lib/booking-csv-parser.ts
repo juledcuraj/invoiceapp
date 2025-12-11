@@ -15,6 +15,39 @@ export const BookingCSVRowSchema = z.object({
 
 export type BookingCSVRow = z.infer<typeof BookingCSVRowSchema>;
 
+// Input CSV row schema for Airbnb export
+export const AirbnbCSVRowSchema = z.object({
+  guestName: z.string().min(1, 'Guest name is required'),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
+  listing: z.string().min(1, 'Listing is required'),
+  earnings: z.number().positive('Earnings must be positive'),
+  // Optional fields for compatibility
+  confirmationCode: z.string().default(''),
+  status: z.string().default(''),
+  contact: z.string().default(''),
+  adults: z.number().default(0),
+  children: z.number().default(0),
+  infants: z.number().default(0),
+  nights: z.number().default(0),
+});
+
+export type AirbnbCSVRow = z.infer<typeof AirbnbCSVRowSchema>;
+
+// Unified reservation interface for processing
+export interface UnifiedReservation {
+  propertyName: string;
+  bookerName: string;
+  departure: string;
+  totalPayment: number;
+  source: 'Booking.com' | 'AirBnB';
+  arrival?: string;
+  currency?: string;
+  reservationNumber?: string;
+}
+
+export type ReservationSource = 'booking' | 'airbnb';
+
 // Accounting CSV output row schema
 export const AccountingRowSchema = z.object({
   konto: z.string(),
@@ -215,6 +248,135 @@ export function parseBookingCSV(csvContent: string): BookingCSVRow[] {
   return results;
 }
 
+export function parseAirbnbCSV(csvContent: string): AirbnbCSVRow[] {
+  const lines = csvContent.trim().split('\n');
+  if (lines.length < 2) {
+    throw new Error('CSV must have at least header and one data row');
+  }
+
+  // Parse header row with proper quote handling
+  const headerRow = lines[0];
+  const header: string[] = [];
+  let currentField = '';
+  let insideQuotesHeader = false;
+  
+  for (let i = 0; i < headerRow.length; i++) {
+    const char = headerRow[i];
+    
+    if (char === '"') {
+      insideQuotesHeader = !insideQuotesHeader;
+    } else if (char === ',' && !insideQuotesHeader) {
+      header.push(currentField.trim().replace(/['"]/g, ''));
+      currentField = '';
+    } else {
+      currentField += char;
+    }
+  }
+  
+  // Add the last field
+  if (currentField) {
+    header.push(currentField.trim().replace(/['"]/g, ''));
+  }
+
+  console.log('DEBUG Airbnb CSV Headers:', header);
+  
+  // Map exact column names from Airbnb CSV
+  const columnMapping: Record<string, string> = {
+    'guest name': 'guestName',
+    'start date': 'startDate', 
+    'end date': 'endDate',
+    'listing': 'listing',
+    'earnings': 'earnings',
+    'confirmation code': 'confirmationCode',
+    'status': 'status',
+    'contact': 'contact',
+    '# of adults': 'adults',
+    '# of children': 'children', 
+    '# of infants': 'infants',
+    '# of nights booked': 'nights',
+  };
+
+  // Find column indices
+  const columnIndices: Record<string, number> = {};
+  header.forEach((col, index) => {
+    const normalizedCol = col.toLowerCase().trim();
+    console.log(`DEBUG Airbnb Column "${col}" (index ${index}) normalized to "${normalizedCol}"`);
+    
+    if (columnMapping[normalizedCol]) {
+      const mappedName = columnMapping[normalizedCol];
+      columnIndices[mappedName] = index;
+      console.log(`DEBUG Airbnb Mapped: "${col}" (index ${index}) -> ${mappedName}`);
+    }
+  });
+  
+  console.log('DEBUG Airbnb Final column indices:', columnIndices);
+
+  // Parse data rows similar to booking parser
+  const rows = csvContent.split('\n').map(line => {
+    const fields: string[] = [];
+    let currentField = '';
+    let insideQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        insideQuotes = !insideQuotes;
+        currentField += char;
+      } else if (char === ',' && !insideQuotes) {
+        fields.push(currentField.replace(/^"|"$/g, ''));
+        currentField = '';
+      } else {
+        currentField += char;
+      }
+    }
+    
+    if (currentField) {
+      fields.push(currentField.replace(/^"|"$/g, ''));
+    }
+    
+    return fields;
+  });
+
+  const results: AirbnbCSVRow[] = [];
+  
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0 || row.every(cell => !cell.trim())) continue;
+    
+    try {
+      const rowData: any = {};
+      
+      // Extract required fields
+      Object.entries(columnIndices).forEach(([fieldName, columnIndex]) => {
+        const cellValue = row[columnIndex]?.trim() || '';
+        
+        if (fieldName === 'earnings') {
+          // Parse earnings like "â‚¬297.5" or "€297.5" to number
+          const numericValue = cellValue.replace(/[^0-9.,]/g, '').replace(',', '.');
+          rowData[fieldName] = parseFloat(numericValue) || 0;
+        } else if (['adults', 'children', 'infants', 'nights'].includes(fieldName)) {
+          rowData[fieldName] = parseInt(cellValue) || 0;
+        } else {
+          rowData[fieldName] = cellValue;
+        }
+      });
+      
+      // Validate and add to results
+      const validatedRow = AirbnbCSVRowSchema.parse(rowData);
+      results.push(validatedRow);
+    } catch (error) {
+      console.warn(`Skipping invalid Airbnb row ${i}: ${error}`);
+    }
+  }
+  
+  if (results.length === 0) {
+    throw new Error('No valid Airbnb reservation rows found in CSV');
+  }
+  
+  return results;
+}
+
 export function formatDecimal(num: number, useComma: boolean = false): string {
   // Ensure we have a valid number
   if (isNaN(num) || num === null || num === undefined) {
@@ -239,10 +401,42 @@ export function formatDate(dateStr: string): string {
   return `${year}${month}${day}`;
 }
 
-export function getLocationShort(propertyName: string): string {
+export function getLocationShort(propertyName: string, source: 'Booking.com' | 'AirBnB' = 'Booking.com'): string {
   const name = propertyName.trim();
   
-  // Map property names to short codes as specified
+  if (source === 'AirBnB') {
+    // Map Airbnb listing names to short codes
+    const airbnbMapping: Record<string, string> = {
+      '2 Bedroom + Balcony, Leopold': 'LAS',
+      '2 Bedroom Flat with Terrace, Close to U1': 'LAMM',
+      '2 Bedroom Superior Apt + Balcony': 'LAS',
+      '5 Star Apartment – 7 Min to Center': 'LAS',
+      'Central Vienna Stay Near Main Station': 'LAS',
+      'Elegant 2 Bedroom Flat, Bright & Peaceful': 'LAMM',
+      'Grand Viennese Apartment with Balcony': 'ZIMM',
+      'Large Apartment with a Balcony – 7 Min to Center': 'LAS',
+      'Spacious Central Penthouse': 'LAS',
+      'Spacious Gem in Vienna\'s Center': 'BEGA',
+    };
+    
+    if (airbnbMapping[name]) {
+      return airbnbMapping[name];
+    }
+    
+    // Fallback for partial matches
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('central') && lowerName.includes('penthouse')) return 'LAS';
+    if (lowerName.includes('spacious') && lowerName.includes('gem')) return 'BEGA';
+    if (lowerName.includes('grand') && lowerName.includes('viennese')) return 'ZIMM';
+    if (lowerName.includes('elegant') && lowerName.includes('peaceful')) return 'LAMM';
+    if (lowerName.includes('terrace') && lowerName.includes('u1')) return 'LAMM';
+    if (lowerName.includes('leopold')) return 'LAS';
+    if (lowerName.includes('7 min') || lowerName.includes('center')) return 'LAS';
+    
+    return name; // Fallback to original name
+  }
+  
+  // Map Booking.com property names to short codes as specified
   const propertyMapping: Record<string, string> = {
     'Home Sweet Home - Vienna Central': 'BEGA',
     'Home Sweet Home - State Opera': 'WAFG',
@@ -274,21 +468,65 @@ export function getLocationShort(propertyName: string): string {
   return name;
 }
 
+export function convertToUnifiedReservations(
+  bookingRows: BookingCSVRow[] = [],
+  airbnbRows: AirbnbCSVRow[] = []
+): UnifiedReservation[] {
+  const unified: UnifiedReservation[] = [];
+  
+  // Convert Booking.com rows
+  bookingRows.forEach(booking => {
+    unified.push({
+      propertyName: booking.propertyName,
+      bookerName: booking.bookerName,
+      departure: booking.departure,
+      totalPayment: booking.totalPayment,
+      source: 'Booking.com',
+      arrival: booking.arrival,
+      currency: booking.currency,
+      reservationNumber: booking.reservationNumber,
+    });
+  });
+  
+  // Convert Airbnb rows
+  airbnbRows.forEach(airbnb => {
+    unified.push({
+      propertyName: airbnb.listing,
+      bookerName: airbnb.guestName,
+      departure: airbnb.endDate,
+      totalPayment: airbnb.earnings,
+      source: 'AirBnB',
+      arrival: airbnb.startDate,
+      currency: 'EUR',
+      reservationNumber: airbnb.confirmationCode,
+    });
+  });
+  
+  // Sort by departure date
+  unified.sort((a, b) => {
+    const dateA = new Date(a.departure);
+    const dateB = new Date(b.departure);
+    return dateA.getTime() - dateB.getTime();
+  });
+  
+  return unified;
+}
+
 export function generateAccountingCSV(
-  bookingRows: BookingCSVRow[],
+  unifiedReservations: UnifiedReservation[],
   startBelegnr: number,
   useCommaDecimal: boolean = false
 ): string {
   const accountingRows: AccountingRow[] = [];
   let currentBelegnr = startBelegnr;
   
-  for (const booking of bookingRows) {
+  for (const reservation of unifiedReservations) {
     const belegnr = currentBelegnr.toString();
-    const belegdat = formatDate(booking.departure);
-    const taxes = calculateAccountingTaxes(booking.totalPayment);
-    // Use property name from CSV to get the correct property code
-    const propertyCode = getLocationShort(booking.propertyName);
-    const text = `${belegnr} ${propertyCode} ${booking.bookerName} Booking.com`;
+    const belegdat = formatDate(reservation.departure);
+    const taxes = calculateAccountingTaxes(reservation.totalPayment);
+    // Use property name from reservation to get the correct property code
+    const propertyCode = getLocationShort(reservation.propertyName, reservation.source);
+    const text = `${belegnr} ${propertyCode} ${reservation.bookerName} ${reservation.source}`;
     
     // Row A: Revenue account
     accountingRows.push({
@@ -336,4 +574,14 @@ export function generateAccountingCSV(
   }
   
   return csvLines.join('\n');
+}
+
+// Legacy function for backward compatibility
+export function generateAccountingCSVFromBooking(
+  bookingRows: BookingCSVRow[],
+  startBelegnr: number,
+  useCommaDecimal: boolean = false
+): string {
+  const unified = convertToUnifiedReservations(bookingRows, []);
+  return generateAccountingCSV(unified, startBelegnr, useCommaDecimal);
 }
