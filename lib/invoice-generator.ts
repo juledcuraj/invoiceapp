@@ -23,9 +23,9 @@ function createInvoiceData(
   company: Company,
   invoiceNumber: string
 ): Invoice {
-  const invoiceDate = format(new Date(), 'yyyy-MM-dd');
   const checkInDate = new Date(csvRow.checkInDate);
   const checkOutDate = new Date(csvRow.checkOutDate);
+  const invoiceDate = format(checkOutDate, 'yyyy-MM-dd'); // Use checkout date as invoice date
   
   // Calculate nights if not provided
   let nights = csvRow.nights;
