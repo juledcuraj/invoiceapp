@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Return ZIP file
-    return new NextResponse(result.zipBuffer.buffer, {
+    return new NextResponse(new Uint8Array(result.zipBuffer), {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="invoices-${Date.now()}.zip"`,
