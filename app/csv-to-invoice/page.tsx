@@ -9,6 +9,7 @@ export default function CsvToInvoice() {
   const [selectedProperty, setSelectedProperty] = useState<string>('')
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [parseResult, setParseResult] = useState<CSVParseResult | null>(null)
+  const [downloadFormat, setDownloadFormat] = useState<'combined' | 'zip'>('combined')
   const [generating, setGenerating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -86,6 +87,7 @@ export default function CsvToInvoice() {
         body: JSON.stringify({
           propertyId: selectedProperty,
           csvRows: parseResult.validRows,
+          format: downloadFormat,
         }),
       })
 
@@ -95,7 +97,19 @@ export default function CsvToInvoice() {
         const a = document.createElement('a')
         a.style.display = 'none'
         a.href = url
-        a.download = `invoices-${Date.now()}.zip`
+        
+        // Extract filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition')
+        let filename = downloadFormat === 'combined' ? 'all-invoices.pdf' : 'invoices.zip'
+        
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="([^"]+)"/)
+          if (filenameMatch) {
+            filename = filenameMatch[1]
+          }
+        }
+        
+        a.download = filename
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
@@ -238,6 +252,43 @@ export default function CsvToInvoice() {
               </div>
             )}
 
+            {/* Download Format Choice */}
+            {parseResult && parseResult.validRows.length > 0 && (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Download Format:</h4>
+                <div className="space-y-3">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="downloadFormat"
+                      value="combined"
+                      checked={downloadFormat === 'combined'}
+                      onChange={(e) => setDownloadFormat(e.target.value as 'combined' | 'zip')}
+                      className="mr-3 text-green-600"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">Single PDF File</div>
+                      <div className="text-sm text-gray-600">Download one PDF with all invoices combined</div>
+                    </div>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="downloadFormat"
+                      value="zip"
+                      checked={downloadFormat === 'zip'}
+                      onChange={(e) => setDownloadFormat(e.target.value as 'combined' | 'zip')}
+                      className="mr-3 text-green-600"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">ZIP Archive</div>
+                      <div className="text-sm text-gray-600">Download ZIP with individual PDFs + combined PDF + CSV summary</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+
             {/* Generate Button */}
             <div className="mb-6">
               <button
@@ -258,7 +309,7 @@ export default function CsvToInvoice() {
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    Generate Invoices ZIP
+                    {downloadFormat === 'combined' ? 'Generate Combined PDF' : 'Generate Invoices ZIP'}
                   </>
                 )}
               </button>

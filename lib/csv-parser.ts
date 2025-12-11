@@ -5,24 +5,24 @@ import { CSVRow, CSVRowSchema, CSVParseResult } from './types';
 // Column mapping for Booking.com CSV formats (including payout format)
 const COLUMN_MAPPINGS = {
   reservationId: [
-    'Reference number', 'Reservation ID', 'Booking ID', 'ReservationID', 'BookingID', 'ID'
+    'Book number', 'Reference number', 'Reservation ID', 'Booking ID', 'ReservationID', 'BookingID', 'ID'
   ],
   guestName: [
-    'Guest name', 'Guest Name', 'Guest', 'Customer Name', 'Customer', 'Name'
+    'Guest name(s)', 'Guest name', 'Guest Name', 'Guest', 'Customer Name', 'Customer', 'Name'
   ],
   checkInDate: [
     'Check-in', 'Check-in Date', 'Arrival', 'CheckIn', 'Check In Date'
   ],
   checkOutDate: [
-    'Checkout', 'Check-out Date', 'Departure', 'Check-out', 'CheckOut', 'Check Out Date'
+    'Check-out', 'Checkout', 'Check-out Date', 'Departure', 'CheckOut', 'Check Out Date'
   ],
   amountPaidGross: [
-    'Amount', 'Gross Amount', 'Total', 'Total Amount', 'Price', 'Gross Price'
+    'Price', 'Amount', 'Gross Amount', 'Total', 'Total Amount', 'Gross Price'
   ],
   currency: ['Currency', 'Curr'],
   guestAddress: ['Address', 'Guest Address', 'Customer Address'],
-  country: ['Country', 'Guest Country', 'Customer Country'],
-  nights: ['Nights', 'Number of Nights', 'Stay Duration']
+  country: ['Booker country', 'Country', 'Guest Country', 'Customer Country'],
+  nights: ['Duration (nights)', 'Nights', 'Number of Nights', 'Stay Duration']
 };
 
 // Additional columns that might be present but we don't need for invoice generation
@@ -93,10 +93,33 @@ function parseDate(dateString: string): string {
 function parseAmount(amountString: string): number {
   if (!amountString) return 0;
   
-  // Remove currency symbols, spaces, and convert comma to dot
-  const cleaned = amountString
-    .replace(/[€$£,\s]/g, '')
-    .replace(',', '.');
+  // Handle formats like "777.857 EUR" or "€777.857"
+  let cleaned = amountString.toString().trim();
+  
+  // Remove currency codes (EUR, USD, etc.) and symbols (€, $, £)
+  cleaned = cleaned
+    .replace(/\s*(EUR|USD|GBP|CHF)\s*$/i, '')  // Remove currency codes at the end
+    .replace(/[€$£₹¥]/g, '')                   // Remove currency symbols
+    .replace(/\s/g, '')                       // Remove all spaces
+    .trim();
+  
+  // Handle comma as thousand separator vs decimal separator
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    // Format like "1,234.56" - comma is thousand separator
+    cleaned = cleaned.replace(/,/g, '');
+  } else if (cleaned.includes(',')) {
+    // Check if comma appears to be decimal separator
+    const commaPos = cleaned.lastIndexOf(',');
+    const afterComma = cleaned.substring(commaPos + 1);
+    
+    // If 1-3 digits after comma, treat as decimal separator
+    if (afterComma.length <= 3 && !/[,.]/.test(afterComma)) {
+      cleaned = cleaned.replace(',', '.');
+    } else {
+      // Otherwise treat as thousand separator
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  }
   
   const amount = parseFloat(cleaned);
   
@@ -105,6 +128,23 @@ function parseAmount(amountString: string): number {
   }
   
   return amount;
+}
+
+function extractCurrency(priceString: string): string {
+  if (!priceString) return 'EUR';
+  
+  // Look for currency codes
+  const currencyMatch = priceString.match(/\b(EUR|USD|GBP|CHF|CAD|AUD|JPY|CNY)\b/i);
+  if (currencyMatch) {
+    return currencyMatch[1].toUpperCase();
+  }
+  
+  // Look for currency symbols
+  if (priceString.includes('€')) return 'EUR';
+  if (priceString.includes('$')) return 'USD';
+  if (priceString.includes('£')) return 'GBP';
+  
+  return 'EUR'; // Default fallback
 }
 
 function mapRow(rawRow: any, columnMapping: Record<string, string>): any {
@@ -121,6 +161,12 @@ function mapRow(rawRow: any, columnMapping: Record<string, string>): any {
 }
 
 function validateAndTransformRow(mappedRow: any): CSVRow {
+  // Extract currency from price field if currency column is not available
+  let currency = mappedRow.currency?.toString() || '';
+  if (!currency && mappedRow.amountPaidGross) {
+    currency = extractCurrency(mappedRow.amountPaidGross.toString());
+  }
+  
   // Transform data before validation
   const transformed = {
     reservationId: mappedRow.reservationId?.toString() || '',
@@ -128,7 +174,7 @@ function validateAndTransformRow(mappedRow: any): CSVRow {
     checkInDate: mappedRow.checkInDate ? parseDate(mappedRow.checkInDate.toString()) : '',
     checkOutDate: mappedRow.checkOutDate ? parseDate(mappedRow.checkOutDate.toString()) : '',
     amountPaidGross: mappedRow.amountPaidGross ? parseAmount(mappedRow.amountPaidGross.toString()) : 0,
-    currency: mappedRow.currency?.toString() || 'EUR',
+    currency: currency || 'EUR',
     guestAddress: mappedRow.guestAddress?.toString() || undefined,
     country: mappedRow.country?.toString() || undefined,
     nights: mappedRow.nights ? parseInt(mappedRow.nights.toString()) : undefined,

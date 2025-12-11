@@ -209,7 +209,8 @@ function generateSummaryCSV(invoices: Invoice[]): string {
 export async function generateInvoices(
   csvRows: CSVRow[],
   property: Property,
-  company: Company
+  company: Company,
+  format: 'combined' | 'zip' = 'zip'
 ): Promise<InvoiceGenerationResult> {
   const errors: string[] = [];
   const invoices: Invoice[] = [];
@@ -220,8 +221,8 @@ export async function generateInvoices(
 
     for (const csvRow of csvRows) {
       try {
-        // Generate invoice number
-        const invoiceNumber = await getNextInvoiceNumber(property.id);
+        // Generate invoice number based on checkout date (service month)
+        const invoiceNumber = await getNextInvoiceNumber(property.id, csvRow.checkOutDate);
         
         // Create invoice data
         const invoice = createInvoiceData(csvRow, property, company, invoiceNumber);
@@ -256,16 +257,40 @@ export async function generateInvoices(
       }
     }
 
-    // Create ZIP file
-    const zipBuffer = await createZipFile(pdfBuffers, summaryCSV, combinedPdfBuffer);
+    // Generate filename based on property and service period
+    let filename = property.invoicePrefix;
+    if (invoices.length > 0) {
+      // Use the first invoice's checkout date to determine year-month
+      const firstCheckout = new Date(invoices[0].service.checkOutDate);
+      const year = firstCheckout.getFullYear();
+      const month = String(firstCheckout.getMonth() + 1).padStart(2, '0');
+      filename = `${property.invoicePrefix}-${year}-${month}`;
+    }
 
-    return {
-      success: errors.length === 0,
-      invoices,
-      errors,
-      zipBuffer,
-      summaryCSV
-    };
+    if (format === 'combined') {
+      // Return only combined PDF
+      return {
+        success: errors.length === 0 && combinedPdfBuffer !== null,
+        invoices,
+        errors,
+        combinedPdfBuffer: combinedPdfBuffer || undefined,
+        summaryCSV,
+        filename: `${filename}-all-invoices.pdf`
+      };
+    } else {
+      // Create ZIP file with everything
+      const zipBuffer = await createZipFile(pdfBuffers, summaryCSV, combinedPdfBuffer);
+      
+      return {
+        success: errors.length === 0,
+        invoices,
+        errors,
+        zipBuffer,
+        combinedPdfBuffer: combinedPdfBuffer || undefined,
+        summaryCSV,
+        filename: `${filename}-invoices.zip`
+      };
+    }
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

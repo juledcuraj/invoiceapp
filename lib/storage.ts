@@ -125,27 +125,29 @@ export async function saveCounters(counters: Counters): Promise<void> {
   await fs.writeFile(COUNTERS_FILE, JSON.stringify(counters, null, 2));
 }
 
-export async function getNextInvoiceNumber(propertyId: string): Promise<string> {
+export async function getNextInvoiceNumber(propertyId: string, serviceDate?: string): Promise<string> {
   const property = await getProperty(propertyId);
   
   if (!property) {
     throw new Error(`Property ${propertyId} not found`);
   }
 
+  // Use service date if provided, otherwise use current date
+  const date = serviceDate ? new Date(serviceDate) : new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+
   // For serverless deployment, use timestamp-based numbering instead of persistent counters
   // This avoids file system writes in read-only environments like Netlify
   if (process.env.NODE_ENV === 'production' || process.env.NETLIFY) {
-    const now = new Date();
-    const year = now.getFullYear();
-    const timestamp = now.getTime().toString().slice(-6); // Last 6 digits of timestamp
-    return `${property.invoicePrefix}-${year}-${timestamp}`;
+    const timestamp = date.getTime().toString().slice(-3); // Last 3 digits of timestamp
+    return `${property.invoicePrefix}-${year}-${month}-${timestamp}`;
   }
   
-  // Development mode: try to use file-based counters
+  // Development mode: try to use file-based counters with monthly reset
   try {
     const counters = await getCounters();
-    const currentYear = new Date().getFullYear();
-    const counterKey = `${propertyId}-${currentYear}`;
+    const counterKey = `${propertyId}-${year}-${month}`;
     const currentCounter = counters[counterKey] || 0;
     const nextCounter = currentCounter + 1;
 
@@ -153,14 +155,12 @@ export async function getNextInvoiceNumber(propertyId: string): Promise<string> 
     counters[counterKey] = nextCounter;
     await saveCounters(counters);
 
-    // Format: PREFIX-YYYY-NNN
+    // Format: OBJECT-YYYY-MM-NNN
     const paddedCounter = nextCounter.toString().padStart(3, '0');
-    return `${property.invoicePrefix}-${currentYear}-${paddedCounter}`;
+    return `${property.invoicePrefix}-${year}-${month}-${paddedCounter}`;
   } catch (error) {
     // Fallback to timestamp if file system is not available
-    const now = new Date();
-    const year = now.getFullYear();
-    const timestamp = now.getTime().toString().slice(-6);
-    return `${property.invoicePrefix}-${year}-${timestamp}`;
+    const timestamp = date.getTime().toString().slice(-3);
+    return `${property.invoicePrefix}-${year}-${month}-${timestamp}`;
   }
 }

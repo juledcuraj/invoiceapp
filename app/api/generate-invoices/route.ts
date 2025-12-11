@@ -6,7 +6,7 @@ import { CSVRowSchema } from '@/lib/types'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { propertyId, csvRows } = body
+    const { propertyId, csvRows, format = 'zip' } = body
 
     if (!propertyId || !csvRows || !Array.isArray(csvRows)) {
       return new NextResponse('Invalid request data', { status: 400 })
@@ -30,24 +30,39 @@ export async function POST(request: NextRequest) {
     const validatedRows = csvRows.map((row: any) => CSVRowSchema.parse(row))
 
     // Generate invoices
-    const result = await generateInvoices(validatedRows, property, company)
+    const result = await generateInvoices(validatedRows, property, company, format)
 
     if (!result.success) {
       return new NextResponse(`Invoice generation failed: ${result.errors.join(', ')}`, { status: 500 })
     }
 
-    if (!result.zipBuffer) {
-      return new NextResponse('Failed to create ZIP file', { status: 500 })
+    if (format === 'combined') {
+      // Return single combined PDF
+      if (!result.combinedPdfBuffer) {
+        return new NextResponse('Failed to create combined PDF', { status: 500 })
+      }
+      
+      return new NextResponse(new Uint8Array(result.combinedPdfBuffer), {
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${result.filename || 'all-invoices.pdf'}"`,
+          'Content-Length': String(result.combinedPdfBuffer.length),
+        },
+      })
+    } else {
+      // Return ZIP file
+      if (!result.zipBuffer) {
+        return new NextResponse('Failed to create ZIP file', { status: 500 })
+      }
+      
+      return new NextResponse(new Uint8Array(result.zipBuffer), {
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="${result.filename || 'invoices.zip'}"`,
+          'Content-Length': String(result.zipBuffer.length),
+        },
+      })
     }
-
-    // Return ZIP file
-    return new NextResponse(new Uint8Array(result.zipBuffer), {
-      headers: {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="invoices-${Date.now()}.zip"`,
-        'Content-Length': String(result.zipBuffer.length),
-      },
-    })
 
   } catch (error) {
     console.error('Error generating invoices:', error)

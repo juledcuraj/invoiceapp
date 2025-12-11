@@ -96,5 +96,7 @@ export type InvoiceGenerationResult = {
   invoices: Invoice[];
   errors: string[];
   zipBuffer?: Buffer;
+  combinedPdfBuffer?: Buffer;
   summaryCSV?: string;
+  filename?: string;
 };
