@@ -237,7 +237,7 @@ export default function BookingToAccounting() {
               <div className="text-xs text-gray-600 space-y-2">
                 <p><strong>File Processing:</strong> Upload one or both CSV types. Reservations will be merged and sorted by departure date.</p>
                 <p><strong>Property Mapping:</strong> Both Booking.com and Airbnb properties are mapped to codes (BEGA, WAFG, LAS, KRA, BM, KLIE, LAMM, ZIMM)</p>
-                <p><strong>Source Identification:</strong> Text field ends with "Booking.com" or "AirBnB" to identify the source</p>
+                <p><strong>Source Identification:</strong> Text field ends with &quot;Booking.com&quot; or &quot;AirBnB&quot; to identify the source</p>
                 <p><strong>Output Format:</strong> konto, belegnr, belegdat, symbol, betrag, steuer, text</p>
                 <p><strong>Tax Calculation:</strong> netto = brutto ÷ 1.132, VAT = netto × 10%, City Tax = netto × 3.2%</p>
                 <p><strong>Per Reservation:</strong> 3 rows (Revenue 200000, Net Revenue 8001 with VAT, City Tax 8003)</p>
@@ -262,7 +262,7 @@ export default function BookingToAccounting() {
                   <div>
                     <p><strong>Airbnb:</strong></p>
                     <ul className="mt-1 space-y-1">
-                      <li>• Spacious Gem in Vienna's Center → BEGA</li>
+                      <li>• Spacious Gem in Vienna&apos;s Center → BEGA</li>
                       <li>• Spacious Central Penthouse → LAS</li>
                       <li>• Large Apartment with Balcony → LAS</li>
                       <li>• Elegant 2 Bedroom Flat → LAMM</li>
