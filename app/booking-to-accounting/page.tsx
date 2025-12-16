@@ -155,7 +155,7 @@ export default function BookingToAccounting() {
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Converter #2: Booking + Airbnb → Accounting CSV</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Accounting Converter: Booking + Airbnb → Accounting CSV</h1>
               <p className="text-gray-600 mt-2">Convert reservations to accounting import format (3 lines per reservation, sorted by departure date)</p>
             </div>
             <Link 

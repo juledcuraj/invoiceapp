@@ -155,7 +155,7 @@ export default function CsvToInvoice() {
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Converter #1: CSV → Invoice PDF</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Invoice Converter: BMD + Reservations → Invoice PDF</h1>
               <p className="text-gray-600 mt-2">Generate professional PDF invoices from guest data CSV</p>
             </div>
             <Link 

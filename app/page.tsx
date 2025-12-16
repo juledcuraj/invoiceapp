@@ -16,37 +16,7 @@ export default function Home() {
         <div className="px-4 py-6 sm:px-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             
-            {/* Converter #1 */}
-            <Link href="/csv-to-invoice" className="block">
-              <div className="border-t-4 border-green-600 bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
-                <div className="flex items-center mb-4">
-                  <div className="flex-shrink-0">
-                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-xl font-semibold text-gray-900">Converter #1: CSV → Invoice PDF</h3>
-                    <p className="text-gray-600">Generate professional PDF invoices from guest data CSV</p>
-                  </div>
-                </div>
-                
-                <div className="text-sm text-gray-500 mb-4">
-                  <p>• Upload guest data CSV file</p>
-                  <p>• Select property configuration</p>
-                  <p>• Generate branded PDF invoices</p>
-                  <p>• Uses checkout date as invoice date</p>
-                </div>
-                
-                <div className="flex justify-end">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    CSV to PDF
-                  </span>
-                </div>
-              </div>
-            </Link>
-
-            {/* Converter #2 */}
+            {/* Accounting Converter - First */}
             <Link href="/booking-to-accounting" className="block">
               <div className="border-t-4 border-blue-600 bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
                 <div className="flex items-center mb-4">
@@ -56,7 +26,7 @@ export default function Home() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-xl font-semibold text-gray-900">Converter #2: Booking + Airbnb → Accounting CSV</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">Accounting Converter: Booking + Airbnb → Accounting CSV</h3>
                     <p className="text-gray-600">Convert reservations to accounting import format</p>
                   </div>
                 </div>
@@ -71,6 +41,36 @@ export default function Home() {
                 <div className="flex justify-end">
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                     CSV to CSV
+                  </span>
+                </div>
+              </div>
+            </Link>
+
+            {/* Invoice Converter - Second */}
+            <Link href="/csv-to-invoice" className="block">
+              <div className="border-t-4 border-green-600 bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
+                <div className="flex items-center mb-4">
+                  <div className="flex-shrink-0">
+                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-xl font-semibold text-gray-900">Invoice Converter: BMD + Reservations → Invoice PDF</h3>
+                    <p className="text-gray-600">Generate professional PDF invoices from BMD and reservation data</p>
+                  </div>
+                </div>
+                
+                <div className="text-sm text-gray-500 mb-4">
+                  <p>• Upload BMD List + Reservations CSV files</p>
+                  <p>• Match invoice numbers with guest data</p>
+                  <p>• Generate branded PDF invoices</p>
+                  <p>• Handles semicolon/comma formats</p>
+                </div>
+                
+                <div className="flex justify-end">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    CSV to PDF
                   </span>
                 </div>
               </div>
