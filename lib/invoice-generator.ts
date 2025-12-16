@@ -221,8 +221,10 @@ export async function generateInvoices(
 
     for (const csvRow of csvRows) {
       try {
-        // Generate invoice number based on checkout date (service month)
-        const invoiceNumber = await getNextInvoiceNumber(property.id, csvRow.checkOutDate);
+        // Use custom invoice number from BMD List if available, otherwise generate new one
+        const invoiceNumber = csvRow.invoiceNumber 
+          ? csvRow.invoiceNumber 
+          : await getNextInvoiceNumber(property.id, csvRow.checkOutDate);
         
         // Create invoice data
         const invoice = createInvoiceData(csvRow, property, company, invoiceNumber);

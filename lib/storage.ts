@@ -86,6 +86,11 @@ export async function getProperty(id: string): Promise<Property | null> {
   return properties.find(p => p.id === id) || null;
 }
 
+export async function getPropertyByPrefix(prefix: string): Promise<Property | null> {
+  const properties = await getProperties();
+  return properties.find(p => p.invoicePrefix === prefix) || null;
+}
+
 export async function addProperty(property: Property): Promise<void> {
   const properties = await getProperties();
   properties.push(property);

@@ -5,37 +5,17 @@ import Link from 'next/link'
 import { Property, CSVParseResult } from '@/lib/types'
 
 export default function CsvToInvoice() {
-  const [properties, setProperties] = useState<Property[]>([])
-  const [selectedProperty, setSelectedProperty] = useState<string>('')
-  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [bmdFile, setBmdFile] = useState<File | null>(null)
+  const [reservationsFile, setReservationsFile] = useState<File | null>(null)
   const [parseResult, setParseResult] = useState<CSVParseResult | null>(null)
   const [downloadFormat, setDownloadFormat] = useState<'combined' | 'zip'>('combined')
   const [generating, setGenerating] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
 
-  useEffect(() => {
-    loadProperties()
-  }, [])
 
-  const loadProperties = async () => {
-    try {
-      const response = await fetch('/api/properties')
-      if (response.ok) {
-        const data = await response.json()
-        setProperties(data)
-        if (data.length > 0) {
-          setSelectedProperty(data[0].id)
-        }
-      }
-    } catch (error) {
-      console.error('Error loading properties:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBmdFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('BMD file upload triggered')
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -44,36 +24,77 @@ export default function CsvToInvoice() {
       return
     }
 
-    setCsvFile(file)
-    setMessage('Parsing CSV file...')
+    console.log('BMD file selected:', file.name)
+    setBmdFile(file)
+    setMessage('')
+    
+    // Parse if both files are ready
+    if (reservationsFile) {
+      console.log('Both files ready, parsing...')
+      parseFiles(file, reservationsFile)
+    }
+  }
+
+  const handleReservationsFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('Reservations file upload triggered')
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.endsWith('.csv')) {
+      setMessage('Please select a CSV file')
+      return
+    }
+
+    console.log('Reservations file selected:', file.name)
+    setReservationsFile(file)
+    setMessage('')
+    
+    // Parse if both files are ready
+    if (bmdFile) {
+      console.log('Both files ready, parsing...')
+      parseFiles(bmdFile, file)
+    }
+  }
+
+  const parseFiles = async (bmdFile: File, reservationsFile: File) => {
+    console.log('parseFiles called with:', bmdFile?.name, reservationsFile?.name)
+    setMessage('Parsing CSV files...')
 
     try {
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('bmdFile', bmdFile)
+      formData.append('reservationsFile', reservationsFile)
+      
+      console.log('FormData created, making API call...')
 
-      const response = await fetch('/api/parse-csv', {
+      const response = await fetch('/api/parse-dual-csv', {
         method: 'POST',
         body: formData,
       })
+      
+      console.log('API response status:', response.status)
 
       if (response.ok) {
         const result = await response.json()
+        console.log('API response result:', result)
         setParseResult(result)
         setMessage('')
       } else {
         const error = await response.text()
-        setMessage(`Error parsing CSV: ${error}`)
+        console.error('API error response:', error)
+        setMessage(`Error parsing CSV files: ${error}`)
         setParseResult(null)
       }
     } catch (error) {
-      setMessage('Error uploading file')
+      console.error('Fetch error:', error)
+      setMessage('Error uploading files: ' + (error instanceof Error ? error.message : 'Unknown error'))
       setParseResult(null)
     }
   }
 
   const handleGenerateInvoices = async () => {
-    if (!selectedProperty || !parseResult || parseResult.validRows.length === 0) {
-      setMessage('Please select a property and upload a valid CSV file')
+    if (!bmdFile || !reservationsFile || !parseResult || parseResult.validRows.length === 0) {
+      setMessage('Please upload both CSV files and wait for parsing to complete')
       return
     }
 
@@ -85,7 +106,6 @@ export default function CsvToInvoice() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          propertyId: selectedProperty,
           csvRows: parseResult.validRows,
           format: downloadFormat,
         }),
@@ -127,13 +147,7 @@ export default function CsvToInvoice() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
-      </div>
-    )
-  }
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -159,64 +173,77 @@ export default function CsvToInvoice() {
           
           {/* Converter #1: CSV to Invoice PDF */}
           <div className="border-t-4 border-green-600 bg-white rounded-lg shadow p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Property Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Property *
-                </label>
-                <select
-                  value={selectedProperty}
-                  onChange={(e) => setSelectedProperty(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  disabled={properties.length === 0}
-                >
-                  {properties.length === 0 ? (
-                    <option value="">No properties configured</option>
-                  ) : (
-                    properties.map((property) => (
-                      <option key={property.id} value={property.id}>
-                        {property.name}
-                      </option>
-                    ))
-                  )}
-                </select>
-                {properties.length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">
-                    Please <Link href="/settings" className="underline">configure properties</Link> first
-                  </p>
-                )}
+            <div className="mb-6">
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-medium text-blue-900 mb-2">📋 How it works:</h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• <strong>BMD List:</strong> Provides invoice numbers, amounts, and property information</li>
+                  <li>• <strong>Reservations CSV:</strong> Provides guest info, dates, and reservation details</li>
+                  <li>• <strong>Matching:</strong> Files are paired sequentially by order</li>
+                  <li>• <strong>Property Detection:</strong> Properties are extracted from BMD text column</li>
+                </ul>
               </div>
-
-              {/* File Upload */}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* BMD List File Upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Guest Data CSV File *
+                  BMD List CSV File *
                 </label>
                 <input
                   type="file"
                   accept=".csv"
-                  onChange={handleFileUpload}
+                  onChange={handleBmdFileUpload}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Upload CSV with guest information (name, check-in/out dates, amount, etc.)
+                  Upload BMD List CSV (contains beleg numbers for invoice numbering)
                 </p>
+              </div>
+
+              {/* Reservations File Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reservations CSV File *
+                </label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleReservationsFileUpload}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Upload Reservations CSV (contains guest information, dates, amounts, etc.)
+                </p>
+              </div>
               </div>
             </div>
 
             {/* File Info */}
-            {csvFile && (
+            {(bmdFile || reservationsFile) && (
               <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                <h4 className="font-medium text-green-900 mb-2">File Information</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-green-700">File:</span> {csvFile.name}
-                  </div>
-                  <div>
-                    <span className="text-green-700">Size:</span> {(csvFile.size / 1024).toFixed(1)} KB
-                  </div>
+                <h4 className="font-medium text-green-900 mb-2">Files Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  {bmdFile && (
+                    <div className="p-2 bg-white rounded border">
+                      <div><span className="text-green-700">BMD File:</span> {bmdFile.name}</div>
+                      <div><span className="text-green-700">Size:</span> {(bmdFile.size / 1024).toFixed(1)} KB</div>
+                    </div>
+                  )}
+                  {reservationsFile && (
+                    <div className="p-2 bg-white rounded border">
+                      <div><span className="text-green-700">Reservations File:</span> {reservationsFile.name}</div>
+                      <div><span className="text-green-700">Size:</span> {(reservationsFile.size / 1024).toFixed(1)} KB</div>
+                    </div>
+                  )}
                 </div>
+                {bmdFile && reservationsFile && (
+                  <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                    <p className="text-xs text-blue-700">
+                      ✅ Both files uploaded - Ready to generate invoices
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -293,7 +320,7 @@ export default function CsvToInvoice() {
             <div className="mb-6">
               <button
                 onClick={handleGenerateInvoices}
-                disabled={!selectedProperty || !parseResult || parseResult.validRows.length === 0 || generating}
+                disabled={!bmdFile || !reservationsFile || !parseResult || parseResult.validRows.length === 0 || generating}
                 className="inline-flex items-center bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200"
               >
                 {generating ? (

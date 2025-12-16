@@ -3,72 +3,104 @@
     "id": "apt01",
     "name": "Home Sweet Home - Vienna Central",
     "address": "Bachardgasse 23\n1030 Wien\nÖsterreich",
-    "invoicePrefix": "BEGA23",
+    "invoicePrefix": "BEGA",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD"
+    "cityTaxMode": "VIENNA_METHOD",
+    "defaultCurrency": "EUR",
+    "cityTaxHandling": "SIMPLE",
+    "serviceFee": 0,
+    "active": true
   },
   {
     "id": "min2gzrw5jk0v9qqze3",
     "name": "Home Sweet Home - State Opera",
     "address": "Walfischgasse 10\n1010 Wien\nÖsterreich",
-    "invoicePrefix": "WALF10",
+    "invoicePrefix": "WAFG",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD"
+    "cityTaxMode": "VIENNA_METHOD",
+    "defaultCurrency": "EUR",
+    "cityTaxHandling": "SIMPLE",
+    "serviceFee": 0,
+    "active": true
   },
   {
     "id": "min2igkkgvg6pzcwwvi",
     "name": "Home Sweet Home - Leopold",
     "address": "Lassallestraße 25\n1020 Wien\nÖsterreich",
-    "invoicePrefix": "LASS25",
+    "invoicePrefix": "LAS",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD"
+    "cityTaxMode": "VIENNA_METHOD",
+    "defaultCurrency": "EUR",
+    "cityTaxHandling": "SIMPLE",
+    "serviceFee": 0,
+    "active": true
   },
   {
     "id": "min2k2kh8w5yhcyuswe",
     "name": "Home Sweet Home - Stephansplatz I",
     "address": "Kramergasse 3\n1010 Wien\nÖsterreich",
-    "invoicePrefix": "KRA03",
+    "invoicePrefix": "KRA",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD"
+    "cityTaxMode": "VIENNA_METHOD",
+    "defaultCurrency": "EUR",
+    "cityTaxHandling": "SIMPLE",
+    "serviceFee": 0,
+    "active": true
   },
   {
     "id": "min2ltvekfxzpyju8dk",
     "name": "Home Sweet Home - Stephansplatz II",
     "address": "Bauernmarkt 8\n1010 Wien\nÖsterreich",
-    "invoicePrefix": "BMARKT",
+    "invoicePrefix": "BM",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD"
+    "cityTaxMode": "VIENNA_METHOD",
+    "defaultCurrency": "EUR",
+    "cityTaxHandling": "SIMPLE",
+    "serviceFee": 0,
+    "active": true
   },
   {
     "id": "min2n6fvh134twkyncj",
     "name": "Margot",
     "address": "Kliebergasse 9\n1050 Wien\nÖsterreich",
-    "invoicePrefix": "KLIE09",
+    "invoicePrefix": "KLIE",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD"
+    "cityTaxMode": "VIENNA_METHOD",
+    "defaultCurrency": "EUR",
+    "cityTaxHandling": "SIMPLE",
+    "serviceFee": 0,
+    "active": true
   },
   {
     "id": "min2o8rqw1mjp3vgfua",
     "name": "Danube Suites",
     "address": "Lammaschgasse 44\n1210 Wien\nÖsterreich",
-    "invoicePrefix": "LAMM44",
+    "invoicePrefix": "LAM",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD"
+    "cityTaxMode": "VIENNA_METHOD",
+    "defaultCurrency": "EUR",
+    "cityTaxHandling": "SIMPLE",
+    "serviceFee": 0,
+    "active": true
   },
   {
     "id": "min2qh8b3gupei5i2cn",
     "name": "Céleste Suites",
     "address": "Zimmermanngasse 17\n1090 Wien\nÖsterreich",
-    "invoicePrefix": "ZIMM17",
+    "invoicePrefix": "ZIM",
     "vatRate": 0.1,
     "cityTaxRate": 0.032,
-    "cityTaxMode": "VIENNA_METHOD"
+    "cityTaxMode": "VIENNA_METHOD",
+    "defaultCurrency": "EUR",
+    "cityTaxHandling": "SIMPLE",
+    "serviceFee": 0,
+    "active": true
   }
 ]

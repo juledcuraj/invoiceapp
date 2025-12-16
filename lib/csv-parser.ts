@@ -5,24 +5,24 @@ import { CSVRow, CSVRowSchema, CSVParseResult } from './types';
 // Column mapping for Booking.com CSV formats (including payout format)
 const COLUMN_MAPPINGS = {
   reservationId: [
-    'Book number', 'Reference number', 'Reservation ID', 'Booking ID', 'ReservationID', 'BookingID', 'ID'
+    'Reference number', 'Reservation ID', 'Booking ID', 'ReservationID', 'BookingID', 'ID'
   ],
   guestName: [
-    'Guest name(s)', 'Guest name', 'Guest Name', 'Guest', 'Customer Name', 'Customer', 'Name'
+    'Guest name', 'Guest Name', 'Guest', 'Customer Name', 'Customer', 'Name'
   ],
   checkInDate: [
     'Check-in', 'Check-in Date', 'Arrival', 'CheckIn', 'Check In Date'
   ],
   checkOutDate: [
-    'Check-out', 'Checkout', 'Check-out Date', 'Departure', 'CheckOut', 'Check Out Date'
+    'Checkout', 'Check-out Date', 'Departure', 'Check-out', 'CheckOut', 'Check Out Date'
   ],
   amountPaidGross: [
-    'Price', 'Amount', 'Gross Amount', 'Total', 'Total Amount', 'Gross Price'
+    'Amount', 'Gross Amount', 'Total', 'Total Amount', 'Price', 'Gross Price'
   ],
   currency: ['Currency', 'Curr'],
   guestAddress: ['Address', 'Guest Address', 'Customer Address'],
-  country: ['Booker country', 'Country', 'Guest Country', 'Customer Country'],
-  nights: ['Duration (nights)', 'Nights', 'Number of Nights', 'Stay Duration']
+  country: ['Country', 'Guest Country', 'Customer Country'],
+  nights: ['Nights', 'Number of Nights', 'Stay Duration']
 };
 
 // Additional columns that might be present but we don't need for invoice generation
@@ -93,41 +93,10 @@ function parseDate(dateString: string): string {
 function parseAmount(amountString: string): number {
   if (!amountString) return 0;
   
-  // Handle formats like "777.857 EUR" or "€777.857"
-  let cleaned = amountString.toString().trim();
-  
-  // Remove currency codes (EUR, USD, etc.) and symbols (€, $, £)
-  cleaned = cleaned
-    .replace(/\s*(EUR|USD|GBP|CHF)\s*$/i, '')  // Remove currency codes at the end
-    .replace(/[€$£₹¥]/g, '')                   // Remove currency symbols
-    .replace(/\s/g, '')                       // Remove all spaces
-    .trim();
-  
-  // Handle comma as thousand separator vs decimal separator
-  if (cleaned.includes(',') && cleaned.includes('.')) {
-    // Format like "1,234.56" - comma is thousand separator
-    cleaned = cleaned.replace(/,/g, '');
-  } else if (cleaned.includes(',')) {
-    // Check if comma appears to be decimal separator
-    const commaPos = cleaned.lastIndexOf(',');
-    const afterComma = cleaned.substring(commaPos + 1);
-    
-    // If 1-3 digits after comma, treat as decimal separator
-    if (afterComma.length <= 3 && !/[,.]/.test(afterComma)) {
-      cleaned = cleaned.replace(',', '.');
-    } else {
-      // Otherwise treat as thousand separator
-      cleaned = cleaned.replace(/,/g, '');
-    }
-  }
-  
+  // Remove any currency symbols and thousands separators
+  const cleaned = amountString.replace(/[€$£¥₹,]/g, '').trim();
   const amount = parseFloat(cleaned);
-  
-  if (isNaN(amount)) {
-    throw new Error(`Invalid amount format: ${amountString}`);
-  }
-  
-  return amount;
+  return isNaN(amount) ? 0 : amount;
 }
 
 function extractCurrency(priceString: string): string {

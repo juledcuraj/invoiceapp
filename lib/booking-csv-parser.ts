@@ -515,18 +515,32 @@ export function convertToUnifiedReservations(
 export function generateAccountingCSV(
   unifiedReservations: UnifiedReservation[],
   startBelegnr: number,
-  useCommaDecimal: boolean = false
+  useCommaDecimal: boolean = false,
+  selectedProperty?: string
 ): string {
   const accountingRows: AccountingRow[] = [];
   let currentBelegnr = startBelegnr;
+  
+  // Property ID to name mapping
+  const propertyIdToName: { [key: string]: string } = {
+    'BEGA': 'Home Sweet Home - Vienna Central',
+    'WAFG': 'Home Sweet Home - State Opera',
+    'LAS': 'Home Sweet Home - Leopold',
+    'KRA': 'Home Sweet Home - Stephansdom',
+    'BM': 'Home Sweet Home - Stephansdom II',
+    'KLIE': 'Margot',
+    'LAMM': 'Denube Suites',
+    'ZIMM': 'Céleste Suites'
+  };
   
   for (const reservation of unifiedReservations) {
     const belegnr = currentBelegnr.toString();
     const belegdat = formatDate(reservation.departure);
     const taxes = calculateAccountingTaxes(reservation.totalPayment);
-    // Use property name from reservation to get the correct property code
-    const propertyCode = getLocationShort(reservation.propertyName, reservation.source);
-    const text = `${belegnr} ${propertyCode} ${reservation.bookerName} ${reservation.source}`;
+    // Use selected property prefix if provided, otherwise fall back to property name mapping
+    const propertyCode = selectedProperty || getLocationShort(reservation.propertyName, reservation.source);
+    // Always use the prefix (propertyCode) in the text column, not the full property name
+    const text = `${belegnr} ${propertyCode} ${reservation.reservationNumber || 'N/A'} ${reservation.bookerName} ${reservation.source}`;
     
     // Row A: Revenue account
     accountingRows.push({
@@ -574,6 +588,89 @@ export function generateAccountingCSV(
   }
   
   return csvLines.join('\n');
+}
+
+// Parse payout CSV format (month_payouts-2025-XX.csv) and filter by target month
+export function parsePayoutCSV(csvContent: string, targetMonth?: string): BookingCSVRow[] {
+  const rows = csvContent.split('\n').map(row => row.trim()).filter(row => row.length > 0);
+  
+  if (rows.length < 2) {
+    throw new Error('CSV must contain at least a header row and one data row');
+  }
+
+  const header = rows[0].split(',').map(h => h.replace(/"/g, '').trim());
+  console.log('Payout CSV headers:', header);
+  
+  const payoutRows: BookingCSVRow[] = [];
+  
+  for (let i = 1; i < rows.length; i++) {
+    try {
+      const values = rows[i].split(',').map(v => v.replace(/"/g, '').trim());
+      const rowData: { [key: string]: string } = {};
+      
+      header.forEach((h, index) => {
+        rowData[h] = values[index] || '';
+      });
+      
+      // Parse checkout date to check if it matches target month
+      const checkout = rowData['Checkout'] || '';
+      if (!checkout) continue;
+      
+      // Convert "31 Jul 2025" format to "2025-07-31"
+      const checkoutDate = parsePayoutDate(checkout);
+      if (!checkoutDate) continue;
+      
+      // Filter by target month if specified
+      if (targetMonth) {
+        const checkoutMonth = checkoutDate.substring(0, 7); // Get YYYY-MM part
+        if (checkoutMonth !== targetMonth) {
+          continue; // Skip this reservation
+        }
+      }
+      
+      // Map payout CSV fields to BookingCSVRow format
+      const amount = parseFloat(rowData['Amount'] || '0');
+      if (amount <= 0) continue;
+      
+      // Property name mapping from reference number - we'll use a simple default
+      const propertyName = `Property ${rowData['Reference number'] || 'Unknown'}`;
+      
+      payoutRows.push({
+        propertyName,
+        bookerName: rowData['Guest name'] || 'Unknown Guest',
+        departure: checkoutDate,
+        totalPayment: amount,
+        location: '',
+        arrival: parsePayoutDate(rowData['Check-in'] || '') || '',
+        currency: rowData['Currency'] || 'EUR',
+        reservationNumber: rowData['Reference number'] || ''
+      });
+    } catch (error) {
+      console.warn(`Error parsing payout CSV row ${i}:`, error);
+      continue;
+    }
+  }
+  
+  // Sort by checkout date
+  payoutRows.sort((a, b) => a.departure.localeCompare(b.departure));
+  
+  console.log(`Parsed ${payoutRows.length} reservations from payout CSV` + (targetMonth ? ` for month ${targetMonth}` : ''));
+  return payoutRows;
+}
+
+// Helper function to parse payout date format ("31 Jul 2025") to ISO format ("2025-07-31")
+function parsePayoutDate(dateStr: string): string | null {
+  if (!dateStr) return null;
+  
+  try {
+    // Handle "31 Jul 2025" format
+    const date = new Date(dateStr.trim());
+    if (isNaN(date.getTime())) return null;
+    
+    return date.toISOString().split('T')[0];
+  } catch {
+    return null;
+  }
 }
 
 // Legacy function for backward compatibility

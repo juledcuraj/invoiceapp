@@ -44,6 +44,7 @@ export const CSVRowSchema = z.object({
   guestAddress: z.string().optional(),
   country: z.string().optional(),
   nights: z.number().optional(),
+  invoiceNumber: z.string().optional(), // Custom invoice number from BMD List (belegnr)
 });
 
 export type CSVRow = z.infer<typeof CSVRowSchema>;
