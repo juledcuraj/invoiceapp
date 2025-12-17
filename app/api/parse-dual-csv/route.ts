@@ -109,10 +109,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to parse Reservations file: ' + error }, { status: 500 });
     }
     
-    // Match and merge data
-    console.log(`Attempting to match ${bmdEntries.length} BMD entries with ${reservations.length} reservations`);
+    // Match and merge data (BMD-centric: every BMD entry gets an invoice)
+    console.log(`Generating invoices for ${bmdEntries.length} BMD entries using ${reservations.length} reservations for guest data`);
     const mergedData = matchReservations(bmdEntries, reservations);
-    console.log(`Matching complete - merged ${mergedData.length} items`);
+    console.log(`Invoice generation complete - created ${mergedData.length} invoices from BMD list`);
 
     // Format for invoice generation (match existing CSV parser output)
     const validRows = mergedData.map(item => ({
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       invoiceNumber: item.invoiceNumber // This is the key addition - belegnr from BMD
     }));
     
-    console.log(`Successfully matched ${validRows.length} reservations with BMD entries`);
+    console.log(`Successfully generated ${validRows.length} invoices from BMD entries (including cancelled/missing reservations)`);
     
     if (validRows.length === 0) {
       console.error('⚠️ ZERO RESULTS FOUND!');
@@ -422,10 +422,10 @@ function parseReservationsCSV(csvContent: string): ReservationEntry[] {
       const status = rowData['Status'] || '';
       const totalPaymentStr = rowData['Price'] || '0';
       
-      // Skip cancelled reservations
+      // Include ALL reservations (cancelled or not) since BMD list is authoritative
+      // Log cancelled status but don't skip - BMD determines which invoices to generate
       if (status.includes('cancelled')) {
-        if (i <= 10) console.log(`Row ${i}: Skipping cancelled reservation ${reservationNumber} (${status})`);
-        continue;
+        if (i <= 10) console.log(`Row ${i}: Including cancelled reservation ${reservationNumber} (${status}) - BMD list determines invoices`);
       }
       const totalPayment = parseFloat(totalPaymentStr.replace(/[",]/g, '')) || 0;
       
@@ -564,6 +564,11 @@ function getPropertyId(propertyName: string): string {
 }
 
 function matchReservations(bmdEntries: BMDEntry[], reservations: ReservationEntry[]): MergedReservation[] {
+  console.log(`\n=== BMD-CENTRIC INVOICE GENERATION ===`);
+  console.log(`BMD entries (invoices to generate): ${bmdEntries.length}`);
+  console.log(`Reservations available (for guest data): ${reservations.length}`);
+  console.log(`Note: ALL BMD entries will get invoices, reservations provide supplementary data only\n`);
+  
   // Check if we have reservation numbers to do direct matching
   const bmdEntriesWithReservationNumbers = bmdEntries.filter(entry => entry.reservationNumber && entry.reservationNumber.length >= 8);
   
@@ -607,9 +612,9 @@ function matchReservations(bmdEntries: BMDEntry[], reservations: ReservationEntr
         });
         console.log(`✓ Matched: BMD ${bmdEntry.belegnr} (${bmdEntry.reservationNumber}) → Reservation ${reservation.reservationNumber}`);
       } else {
-        console.warn(`❌ No reservation found for BMD reservation number: ${bmdEntry.reservationNumber} (belegnr: ${bmdEntry.belegnr})`);
-        // Still create entry with BMD data only for missing reservations
-        // Use BMD checkout date and estimate check-in date (1 day before checkout)
+        console.log(`⚠️  No reservation data found for BMD ${bmdEntry.belegnr} (${bmdEntry.reservationNumber}) - generating invoice with BMD data only`);
+        // IMPORTANT: Still create entry with BMD data only for missing/cancelled reservations
+        // BMD list is authoritative - every BMD entry gets an invoice
         const checkoutDate = bmdEntry.checkoutDate || new Date().toISOString().split('T')[0];
         const checkoutDateObj = new Date(checkoutDate);
         const checkinDateObj = new Date(checkoutDateObj.getTime() - 24 * 60 * 60 * 1000); // 1 day before
@@ -618,7 +623,7 @@ function matchReservations(bmdEntries: BMDEntry[], reservations: ReservationEntr
         directMatches.push({
           reservationId: bmdEntry.reservationNumber,
           invoiceNumber: bmdEntry.belegnr,
-          guestName: bmdEntry.guestName || 'Unknown Guest',
+          guestName: bmdEntry.guestName || 'Guest', // Use BMD guest name if available
           checkInDate: checkinDate,
           checkOutDate: checkoutDate,
           amountPaidGross: bmdEntry.bruttoAmount,
@@ -626,17 +631,42 @@ function matchReservations(bmdEntries: BMDEntry[], reservations: ReservationEntr
           property: 'KLIE',
           propertyId: 'KLIE'
         });
+        console.log(`✓ Created invoice entry for BMD ${bmdEntry.belegnr} with estimated dates`);
       }
     }
     
     console.log(`Direct matching: ${directMatches.length} matched from ${bmdEntriesWithReservationNumbers.length} BMD entries with reservation numbers`);
     
-    // If no direct matches were found, fall back to sequential pairing
-    if (directMatches.length === 0) {
-      console.log('No direct matches found, falling back to sequential pairing...');
-    } else {
-      return directMatches;
+    // Handle BMD entries without reservation numbers (ensure ALL BMD entries get invoices)
+    const bmdEntriesWithoutReservationNumbers = bmdEntries.filter(entry => !entry.reservationNumber || entry.reservationNumber.length < 8);
+    
+    if (bmdEntriesWithoutReservationNumbers.length > 0) {
+      console.log(`Creating invoices for ${bmdEntriesWithoutReservationNumbers.length} BMD entries without reservation numbers...`);
+      
+      for (const bmdEntry of bmdEntriesWithoutReservationNumbers) {
+        const checkoutDate = bmdEntry.checkoutDate || new Date().toISOString().split('T')[0];
+        const checkoutDateObj = new Date(checkoutDate);
+        const checkinDateObj = new Date(checkoutDateObj.getTime() - 24 * 60 * 60 * 1000);
+        const checkinDate = checkinDateObj.toISOString().split('T')[0];
+        
+        directMatches.push({
+          reservationId: `BMD_${bmdEntry.belegnr}`,
+          invoiceNumber: bmdEntry.belegnr,
+          guestName: bmdEntry.guestName || 'Guest',
+          checkInDate: checkinDate,
+          checkOutDate: checkoutDate,
+          amountPaidGross: bmdEntry.bruttoAmount,
+          currency: 'EUR',
+          property: 'KLIE',
+          propertyId: 'KLIE'
+        });
+        
+        console.log(`✓ Created invoice for BMD ${bmdEntry.belegnr} without reservation match`);
+      }
     }
+    
+    console.log(`Direct matching complete: ${directMatches.length} invoices created from ${bmdEntries.length} total BMD entries`);
+    return directMatches;
   }
   
   // Fallback: Sequential pairing when BMD doesn't have reservation numbers
@@ -680,7 +710,36 @@ function matchReservations(bmdEntries: BMDEntry[], reservations: ReservationEntr
     }
   }
   
-  console.log(`Sequential pairing: ${sequentialMatches.length} pairs created`);
+  // Handle any remaining unpaired BMD entries (BMD count > reservation count)
+  if (bmdEntries.length > pairingCount) {
+    console.log(`Creating invoices for ${bmdEntries.length - pairingCount} unpaired BMD entries...`);
+    
+    for (let i = pairingCount; i < bmdEntries.length; i++) {
+      const bmdEntry = bmdEntries[i];
+      const checkoutDate = bmdEntry.checkoutDate || new Date().toISOString().split('T')[0];
+      const checkoutDateObj = new Date(checkoutDate);
+      const checkinDateObj = new Date(checkoutDateObj.getTime() - 24 * 60 * 60 * 1000);
+      const checkinDate = checkinDateObj.toISOString().split('T')[0];
+      
+      sequentialMatches.push({
+        reservationId: `BMD_${bmdEntry.belegnr}`,
+        invoiceNumber: bmdEntry.belegnr,
+        guestName: bmdEntry.guestName || 'Guest',
+        checkInDate: checkinDate,
+        checkOutDate: checkoutDate,
+        amountPaidGross: bmdEntry.bruttoAmount,
+        currency: 'EUR',
+        property: 'KLIE',
+        propertyId: 'KLIE'
+      });
+      
+      if (i - pairingCount < 3) {
+        console.log(`Unpaired BMD #${i+1}: ${bmdEntry.belegnr} (${bmdEntry.guestName || 'Guest'}) - BMD data only`);
+      }
+    }
+  }
+  
+  console.log(`Sequential pairing complete: ${sequentialMatches.length} invoices created from ${bmdEntries.length} BMD entries`);
   return sequentialMatches;
 }
 
