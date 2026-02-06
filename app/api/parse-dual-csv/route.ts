@@ -539,8 +539,8 @@ function getPropertyId(propertyName: string): string {
     'Home Sweet Home - Stephansdom': 'KRA',
     'Home Sweet Home - Stephansdom II': 'BM',
     'Margot': 'KLIE',
-    'Denube Suites': 'LAMM',
-    'Céleste Suites': 'ZIMM'
+    'Denube Suites': 'LAM',
+    'Céleste Suites': 'ZIM'
   };
   
   // Direct match first
@@ -556,8 +556,8 @@ function getPropertyId(propertyName: string): string {
   if (name.includes('stephansdom') && name.includes('kramergasse')) return 'KRA';
   if (name.includes('stephansdom') && name.includes('bauernmarkt')) return 'BM';
   if (name.includes('margot') || name.includes('kliebergasse')) return 'KLIE';
-  if (name.includes('denube')) return 'LAMM';
-  if (name.includes('céleste')) return 'ZIMM';
+  if (name.includes('denube')) return 'LAM';
+  if (name.includes('céleste')) return 'ZIM';
   
   console.warn(`Unknown property: ${propertyName}`);
   return propertyName || 'UNKNOWN'; // Return the property name itself if no mapping found

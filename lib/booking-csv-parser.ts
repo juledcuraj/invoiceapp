@@ -408,12 +408,12 @@ export function getLocationShort(propertyName: string, source: 'Booking.com' | '
     // Map Airbnb listing names to short codes
     const airbnbMapping: Record<string, string> = {
       '2 Bedroom + Balcony, Leopold': 'LAS',
-      '2 Bedroom Flat with Terrace, Close to U1': 'LAMM',
+      '2 Bedroom Flat with Terrace, Close to U1': 'LAM',
       '2 Bedroom Superior Apt + Balcony': 'LAS',
       '5 Star Apartment – 7 Min to Center': 'LAS',
       'Central Vienna Stay Near Main Station': 'LAS',
-      'Elegant 2 Bedroom Flat, Bright & Peaceful': 'LAMM',
-      'Grand Viennese Apartment with Balcony': 'ZIMM',
+      'Elegant 2 Bedroom Flat, Bright & Peaceful': 'LAM',
+      'Grand Viennese Apartment with Balcony': 'ZIM',
       'Large Apartment with a Balcony – 7 Min to Center': 'LAS',
       'Spacious Central Penthouse': 'LAS',
       'Spacious Gem in Vienna\'s Center': 'BEGA',
@@ -427,9 +427,9 @@ export function getLocationShort(propertyName: string, source: 'Booking.com' | '
     const lowerName = name.toLowerCase();
     if (lowerName.includes('central') && lowerName.includes('penthouse')) return 'LAS';
     if (lowerName.includes('spacious') && lowerName.includes('gem')) return 'BEGA';
-    if (lowerName.includes('grand') && lowerName.includes('viennese')) return 'ZIMM';
-    if (lowerName.includes('elegant') && lowerName.includes('peaceful')) return 'LAMM';
-    if (lowerName.includes('terrace') && lowerName.includes('u1')) return 'LAMM';
+    if (lowerName.includes('grand') && lowerName.includes('viennese')) return 'ZIM';
+    if (lowerName.includes('elegant') && lowerName.includes('peaceful')) return 'LAM';
+    if (lowerName.includes('terrace') && lowerName.includes('u1')) return 'LAM';
     if (lowerName.includes('leopold')) return 'LAS';
     if (lowerName.includes('7 min') || lowerName.includes('center')) return 'LAS';
     
@@ -444,8 +444,8 @@ export function getLocationShort(propertyName: string, source: 'Booking.com' | '
     'Home Sweet Home - Stephansdom': 'KRA',
     'Home Sweet Home - Stephansdom II': 'BM',
     'Margot': 'KLIE',
-    'Denube Suites': 'LAMM',
-    'Céleste Suites': 'ZIMM',
+    'Denube Suites': 'LAM',
+    'Céleste Suites': 'ZIM',
     // Direct property prefix mapping (for when property name is set to the prefix)
     'BMD01': 'BMD01',
     'BMD02': 'BMD02', 
@@ -470,8 +470,8 @@ export function getLocationShort(propertyName: string, source: 'Booking.com' | '
   if (lowerName.includes('stephansdom ii')) return 'BM';
   if (lowerName.includes('stephansdom')) return 'KRA';
   if (lowerName.includes('margot')) return 'KLIE';
-  if (lowerName.includes('denube')) return 'LAMM';
-  if (lowerName.includes('céleste') || lowerName.includes('celeste')) return 'ZIMM';
+  if (lowerName.includes('denube')) return 'LAM';
+  if (lowerName.includes('céleste') || lowerName.includes('celeste')) return 'ZIM';
   
   // Fallback - return original name if no match
   return name;
@@ -537,8 +537,8 @@ export function generateAccountingCSV(
     'KRA': 'Home Sweet Home - Stephansdom',
     'BM': 'Home Sweet Home - Stephansdom II',
     'KLIE': 'Margot',
-    'LAMM': 'Denube Suites',
-    'ZIMM': 'Céleste Suites'
+    'LAM': 'Denube Suites',
+    'ZIM': 'Céleste Suites'
   };
   
   for (const reservation of unifiedReservations) {
