@@ -13,12 +13,25 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     
-    // Extract multiple booking files
-    const bookingFiles: File[] = [];
-    const entries = Array.from(formData.entries());
-    for (const [key, value] of entries) {
-      if (key.startsWith('bookingFile_') && value instanceof File) {
-        bookingFiles.push(value);
+    // Extract property-specific booking files
+    const propertyFiles: Array<{property: string, files: File[]}> = [];
+    const propertyCount = parseInt(formData.get('propertyCount') as string) || 0;
+    
+    // Group files by property
+    for (let propertyIndex = 0; propertyIndex < propertyCount; propertyIndex++) {
+      const property = formData.get(`property_${propertyIndex}`) as string;
+      const propertyFilesList: File[] = [];
+      
+      // Get all files for this property
+      const entries = Array.from(formData.entries());
+      for (const [key, value] of entries) {
+        if (key.startsWith(`bookingFile_${propertyIndex}_`) && value instanceof File) {
+          propertyFilesList.push(value);
+        }
+      }
+      
+      if (property && propertyFilesList.length > 0) {
+        propertyFiles.push({property, files: propertyFilesList});
       }
     }
     
@@ -26,22 +39,24 @@ export async function POST(request: NextRequest) {
     const targetMonth = formData.get('targetMonth') as string;
     const startBelegnr = parseInt(formData.get('startBelegnr') as string) || 1;
     const useCommaDecimal = formData.get('useCommaDecimal') === 'true';
-    const selectedProperty = formData.get('selectedProperty') as string;
     
-    if (bookingFiles.length === 0 && !airbnbFile) {
+    if (propertyFiles.length === 0 && !airbnbFile) {
       return NextResponse.json(
         { error: 'Please provide at least one CSV file (Booking.com or Airbnb)' },
         { status: 400 }
       );
     }
     
+    
     // Validate file types
-    for (const file of bookingFiles) {
-      if (!file.name.toLowerCase().endsWith('.csv')) {
-        return NextResponse.json(
-          { error: `Booking.com file ${file.name} must be a CSV file` },
-          { status: 400 }
-        );
+    for (const propertyGroup of propertyFiles) {
+      for (const file of propertyGroup.files) {
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+          return NextResponse.json(
+            { error: `Booking.com file ${file.name} for property ${propertyGroup.property} must be a CSV file` },
+            { status: 400 }
+          );
+        }
       }
     }
     
@@ -55,18 +70,28 @@ export async function POST(request: NextRequest) {
     let bookingRows: BookingCSVRow[] = [];
     let airbnbRows: AirbnbCSVRow[] = [];
     
-    // Parse multiple Booking.com payout CSV files if provided
-    if (bookingFiles.length > 0) {
-      console.log(`Processing ${bookingFiles.length} booking payout files with target month: ${targetMonth}`);
+    // Parse property-specific Booking.com payout CSV files
+    if (propertyFiles.length > 0) {
+      console.log(`Processing ${propertyFiles.length} property groups with target month: ${targetMonth}`);
       
-      for (const file of bookingFiles) {
-        try {
-          const content = await file.text();
-          const fileRows = parsePayoutCSV(content, targetMonth);
-          bookingRows.push(...fileRows);
-          console.log(`Parsed ${fileRows.length} reservations from ${file.name}`);
-        } catch (error) {
-          console.warn(`Error parsing ${file.name}:`, error);
+      for (const propertyGroup of propertyFiles) {
+        console.log(`Processing ${propertyGroup.files.length} files for property ${propertyGroup.property}`);
+        
+        for (const file of propertyGroup.files) {
+          try {
+            const content = await file.text();
+            const fileRows = parsePayoutCSV(content, targetMonth);
+            
+            // Set the property name for each row based on the upload section
+            fileRows.forEach(row => {
+              row.propertyName = propertyGroup.property; // Use the property prefix as the property name
+            });
+            
+            bookingRows.push(...fileRows);
+            console.log(`Parsed ${fileRows.length} reservations from ${file.name} for property ${propertyGroup.property}`);
+          } catch (error) {
+            console.warn(`Error parsing ${file.name} for property ${propertyGroup.property}:`, error);
+          }
         }
       }
       
@@ -92,10 +117,10 @@ export async function POST(request: NextRequest) {
     
     console.log(`Total ${unifiedReservations.length} reservations ready for processing`);
     
-    // Generate accounting CSV
-    const accountingCSV = generateAccountingCSV(unifiedReservations, startBelegnr, useCommaDecimal, selectedProperty);
+    // Generate accounting CSV (no selectedProperty needed since each reservation has its property)
+    const accountingCSV = generateAccountingCSV(unifiedReservations, startBelegnr, useCommaDecimal);
     
-    // Generate filename based on target month and property
+    // Generate filename based on target month
     let filename = 'BMD_Liste.csv';
     if (targetMonth) {
       const [year, month] = targetMonth.split('-');
@@ -104,16 +129,7 @@ export async function POST(request: NextRequest) {
         'July', 'August', 'September', 'October', 'November', 'December'
       ];
       const monthName = monthNames[parseInt(month) - 1] || 'Unknown';
-      
-      // Include property short name in filename if selected
-      if (selectedProperty) {
-        filename = `${selectedProperty}_${monthName}_BMD_Liste.csv`;
-      } else {
-        filename = `${monthName}_BMD_Liste.csv`;
-      }
-    } else if (selectedProperty) {
-      // Include property even without target month
-      filename = `${selectedProperty}_BMD_Liste.csv`;
+      filename = `${monthName}_BMD_Liste.csv`;
     }
     
     // Create response with CSV file

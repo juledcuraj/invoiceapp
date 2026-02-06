@@ -4,14 +4,19 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Property } from '@/lib/types'
 
+interface PropertyUpload {
+  files: File[]
+  isReady: boolean
+}
+
 export default function BookingToAccounting() {
-  const [bookingCsvFiles, setBookingCsvFiles] = useState<File[]>([])
+  const [propertyUploads, setPropertyUploads] = useState<Record<string, PropertyUpload>>({})
   const [airbnbCsvFile, setAirbnbCsvFile] = useState<File | null>(null)
-  const [targetMonth, setTargetMonth] = useState<string>('')  // Format: YYYY-MM
+  const [targetMonth, setTargetMonth] = useState<string>('')
   const [startBelegnr, setStartBelegnr] = useState<number>(2251)
-  const [useCommaDecimal, setUseCommaDecimal] = useState<boolean>(true)  // Default to comma for Austrian standard
-  const [selectedProperty, setSelectedProperty] = useState<string>('') // Property selection (prefix)
-  const [convertingBooking, setConvertingBooking] = useState(false)
+  const [useCommaDecimal, setUseCommaDecimal] = useState<boolean>(true)
+  const [mergingAll, setMergingAll] = useState(false)
+  const [allListsReady, setAllListsReady] = useState(false)
   const [bookingMessage, setBookingMessage] = useState('')
   const [properties, setProperties] = useState<Property[]>([])
   const [loadingProperties, setLoadingProperties] = useState(true)
@@ -36,7 +41,7 @@ export default function BookingToAccounting() {
     }
   }
 
-  const handleBookingFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePropertyFileUpload = (propertyPrefix: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files || files.length === 0) return
 
@@ -51,9 +56,18 @@ export default function BookingToAccounting() {
       setBookingMessage('Some files were skipped (only CSV files are accepted)')
     }
 
-    setBookingCsvFiles(csvFiles)
+    setPropertyUploads(prev => ({
+      ...prev,
+      [propertyPrefix]: {
+        ...prev[propertyPrefix],
+        files: csvFiles,
+        isReady: csvFiles.length > 0
+      }
+    }))
     setBookingMessage('')
   }
+
+
 
   const handleAirbnbFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -68,44 +82,43 @@ export default function BookingToAccounting() {
     setBookingMessage('')
   }
 
-  const convertBookingCSV = async () => {
-    if (bookingCsvFiles.length === 0 && !airbnbCsvFile) {
-      setBookingMessage('Please select at least one CSV file (Booking.com or Airbnb)')
+  const mergeAllLists = async () => {
+    const readyUploads = Object.entries(propertyUploads).filter(([_, upload]) => upload.isReady)
+    
+    if (readyUploads.length === 0 && !airbnbCsvFile) {
+      setBookingMessage('Please prepare at least one property list or upload an Airbnb CSV')
       return
     }
 
-    if (!selectedProperty) {
-      setBookingMessage('Please select a property prefix')
+    if (!targetMonth) {
+      setBookingMessage('Please select a target month for filtering reservations')
       return
     }
 
-    if (bookingCsvFiles.length > 0 && !targetMonth) {
-      setBookingMessage('Please select a target month when uploading Booking.com files')
-      return
-    }
-
-    setConvertingBooking(true)
-    setBookingMessage('Converting to accounting format...')
+    setMergingAll(true)
+    setBookingMessage('Merging all property lists and generating accounting CSV...')
 
     try {
       const formData = new FormData()
       
-      // Add multiple booking files
-      bookingCsvFiles.forEach((file, index) => {
-        formData.append(`bookingFile_${index}`, file)
+      // Add files from each ready property
+      readyUploads.forEach(([propertyPrefix, upload], propertyIndex) => {
+        upload.files.forEach((file, fileIndex) => {
+          formData.append(`bookingFile_${propertyIndex}_${fileIndex}`, file)
+        })
+        formData.append(`property_${propertyIndex}`, propertyPrefix)
       })
+      
+      // Add global target month
+      formData.append('targetMonth', targetMonth)
       
       if (airbnbCsvFile) {
         formData.append('airbnbFile', airbnbCsvFile)
       }
       
-      if (targetMonth) {
-        formData.append('targetMonth', targetMonth)
-      }
-      
       formData.append('startBelegnr', startBelegnr.toString())
       formData.append('useCommaDecimal', useCommaDecimal.toString())
-      formData.append('selectedProperty', selectedProperty)
+      formData.append('propertyCount', readyUploads.length.toString())
 
       const response = await fetch('/api/convert-booking', {
         method: 'POST',
@@ -116,9 +129,8 @@ export default function BookingToAccounting() {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
         
-        // Extract filename from Content-Disposition header
         const contentDisposition = response.headers.get('Content-Disposition')
-        let filename = `accounting_export_${Date.now()}.csv` // fallback
+        let filename = `merged_accounting_export_${Date.now()}.csv`
         
         if (contentDisposition) {
           const filenameMatch = contentDisposition.match(/filename="([^"]+)"/)
@@ -137,15 +149,16 @@ export default function BookingToAccounting() {
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
         
-        setBookingMessage('Accounting CSV generated and downloaded successfully!')
+        setBookingMessage(`Merged accounting CSV with ${readyUploads.length} properties generated successfully!`)
+        setAllListsReady(true)
       } else {
         const error = await response.text()
-        setBookingMessage(`Error converting CSV: ${error}`)
+        setBookingMessage(`Error merging lists: ${error}`)
       }
     } catch (error) {
-      setBookingMessage('Error converting CSV')
+      setBookingMessage('Error merging property lists')
     } finally {
-      setConvertingBooking(false)
+      setMergingAll(false)
     }
   }
 
@@ -171,207 +184,211 @@ export default function BookingToAccounting() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
 
-          {/* Converter #2: Booking to Accounting CSV */}
-          <div className="border-t-4 border-blue-600 bg-white rounded-lg shadow p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              {/* Booking.com File Upload */}
+          {/* Global Settings Section */}
+          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">
+              Global Settings (applies to all properties)
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Booking.com Payout CSV Files
+                  Target Month *
                 </label>
                 <input
-                  type="file"
-                  accept=".csv"
-                  multiple
-                  onChange={handleBookingFileUpload}
+                  type="month"
+                  value={targetMonth}
+                  onChange={(e) => setTargetMonth(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="2025-07"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Upload multiple payout CSV files (month_payouts-2025-XX.csv format)
+                  Only reservations with checkout in this month will be included from all files
                 </p>
-                
-                {/* Target Month Selection */}
-                <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Target Month (for filtering)
-                  </label>
-                  <input
-                    type="month"
-                    value={targetMonth}
-                    onChange={(e) => setTargetMonth(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="2025-07"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Only reservations with checkout in this month will be included
-                  </p>
-                </div>
-                
-                {bookingCsvFiles.length > 0 && (
-                  <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
-                    <p className="text-sm text-green-700">
-                      <strong>Booking Files ({bookingCsvFiles.length}):</strong>
-                    </p>
-                    <ul className="text-xs text-green-600 mt-1">
-                      {bookingCsvFiles.map((file, index) => (
-                        <li key={index}>• {file.name} ({(file.size / 1024).toFixed(1)} KB)</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* Airbnb File Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Airbnb Reservations CSV
-                </label>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleAirbnbFileUpload}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Upload Airbnb CSV export
-                </p>
-                
-                {airbnbCsvFile && (
-                  <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
-                    <p className="text-sm text-green-700">
-                      <strong>Airbnb:</strong> {airbnbCsvFile.name} ({(airbnbCsvFile.size / 1024).toFixed(1)} KB)
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Settings */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Property *
-                  </label>
-                  <select
-                    value={selectedProperty}
-                    onChange={(e) => setSelectedProperty(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={loadingProperties}
-                  >
-                    <option value="">{loadingProperties ? 'Loading properties...' : 'Select property...'}</option>
-                    {properties.map((property) => (
-                      <option key={property.id} value={property.invoicePrefix}>
-                        {property.name} ({property.invoicePrefix})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">Choose the property for all reservations in the CSV</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Belegnr (Voucher Number)
-                  </label>
-                  <input
-                    type="number"
-                    value={startBelegnr}
-                    onChange={(e) => setStartBelegnr(parseInt(e.target.value) || 2251)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="2251"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Starting number for voucher numbering</p>
-                </div>
-
-                <div>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={useCommaDecimal}
-                      onChange={(e) => setUseCommaDecimal(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">Use comma as decimal separator (e.g., 917,34)</span>
-                  </label>
-                  <p className="text-xs text-gray-500 mt-1">Austrian accounting standard</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Convert Button */}
-            <div className="mb-6">
-              <button
-                onClick={convertBookingCSV}
-                disabled={(bookingCsvFiles.length === 0 && !airbnbCsvFile) || !selectedProperty || convertingBooking}
-                className="inline-flex items-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200"
-              >
-                {convertingBooking ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Converting...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Convert & Merge Files
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Messages */}
-            {bookingMessage && (
-              <div className={`p-4 rounded-lg mb-6 ${
-                bookingMessage.includes('Error') || bookingMessage.includes('error') 
-                  ? 'bg-red-50 text-red-700 border border-red-200' 
-                  : bookingMessage.includes('successfully')
-                  ? 'bg-green-50 text-green-700 border border-green-200'
-                  : 'bg-blue-50 text-blue-700 border border-blue-200'
-              }`}>
-                {bookingMessage}
-              </div>
-            )}
-
-            {/* Instructions */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-900 mb-3">How It Works:</h4>
-              <div className="text-xs text-gray-600 space-y-2">
-                <p><strong>Booking.com Processing:</strong> Upload multiple payout CSV files (month_payouts-2025-XX.csv format). Select target month to filter reservations by checkout date. Files will be merged and sorted by checkout date.</p>
-                <p><strong>Airbnb Processing:</strong> Upload single Airbnb CSV file as before (no filtering applied).</p>
-                <p><strong>Property Mapping:</strong> Both Booking.com and Airbnb properties are mapped to codes (BEGA, WAFG, LAS, KRA, BM, KLIE, LAMM, ZIMM)</p>
-                <p><strong>Source Identification:</strong> Text field ends with &quot;Booking.com&quot; or &quot;AirBnB&quot; to identify the source</p>
-                <p><strong>Output Format:</strong> konto, belegnr, belegdat, symbol, betrag, steuer, text</p>
-                <p><strong>Tax Calculation:</strong> netto = brutto ÷ 1.132, VAT = netto × 10%, City Tax = netto × 3.2%</p>
-                <p><strong>Per Reservation:</strong> 3 rows (Revenue 200000, Net Revenue 8001 with VAT, City Tax 8003)</p>
               </div>
               
-              <div className="mt-4 pt-3 border-t border-gray-200">
-                <h5 className="text-sm font-medium text-gray-900 mb-2">Property Code Mapping:</h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600">
-                  <div>
-                    <p><strong>Booking.com:</strong></p>
-                    {loadingProperties ? (
-                      <div className="text-xs text-gray-500 mt-1">Loading property mappings...</div>
-                    ) : (
-                      <ul className="mt-1 space-y-1">
-                        {properties.map((property) => (
-                          <li key={property.id}>• {property.name} → {property.invoicePrefix}</li>
-                        ))}
-                      </ul>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Start Belegnr (Voucher Number) *
+                </label>
+                <input
+                  type="number"
+                  value={startBelegnr}
+                  onChange={(e) => setStartBelegnr(parseInt(e.target.value) || 2251)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="2251"
+                />
+                <p className="text-xs text-gray-500 mt-1">Starting number for voucher numbering (shared for Booking + Airbnb)</p>
+              </div>
+              
+              <div>
+                <label className="flex items-center space-x-2 mt-6">
+                  <input
+                    type="checkbox"
+                    checked={useCommaDecimal}
+                    onChange={(e) => setUseCommaDecimal(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Use comma as decimal separator (e.g., 917,34)</span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1">Austrian accounting standard</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Booking.com Properties Section */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-semibold mb-4 text-blue-600">
+              Booking.com Reservations by Property
+            </h2>
+
+            <div className="space-y-6">
+              {properties.map((property) => (
+                <div key={property.invoicePrefix} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium text-gray-900">
+                      {property.invoicePrefix}: {property.name}
+                    </h3>
+                    {propertyUploads[property.invoicePrefix]?.isReady && (
+                      <span className="flex items-center text-green-600">
+                        <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Ready
+                      </span>
                     )}
                   </div>
-                  <div>
-                    <p><strong>Airbnb:</strong></p>
-                    <ul className="mt-1 space-y-1">
-                      <li>• Property name will be detected from CSV and mapped to prefix</li>
-                      <li>• Output uses prefix (e.g., KLIE) not full name</li>
-                      <li>• Text column format: &quot;&#123;belegnr&#125; &#123;prefix&#125; &#123;reservationNumber&#125; &#123;guestName&#125; Booking.com&quot;</li>
-                      <li>• Example: &quot;2251 KLIE 6903494474 John Doe Booking.com&quot;</li>
-                    </ul>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Upload CSV files for {property.invoicePrefix}:
+                      </label>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={(e) => handlePropertyFileUpload(property.invoicePrefix, e)}
+                        multiple
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Upload multiple CSV files - reservations will be filtered by the global target month
+                      </p>
+                      {propertyUploads[property.invoicePrefix]?.files && propertyUploads[property.invoicePrefix].files.length > 0 && (
+                        <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                          <p className="text-sm text-blue-700">
+                            <strong>{propertyUploads[property.invoicePrefix].files.length} file(s):</strong>
+                          </p>
+                          <ul className="text-xs text-blue-600 mt-1">
+                            {propertyUploads[property.invoicePrefix].files.map((file, index) => (
+                              <li key={index}>• {file.name} ({(file.size / 1024).toFixed(1)} KB)</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                </div>
+              ))}
+
+              {/* Merge All Button */}
+              {Object.values(propertyUploads).some(upload => upload.isReady) && targetMonth && (
+                <div className="text-center pt-4 border-t border-gray-200">
+                  <button
+                    onClick={mergeAllLists}
+                    disabled={mergingAll}
+                    className="bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 font-medium text-lg"
+                  >
+                    {mergingAll ? 'Merging All Properties...' : `Generate Combined Accounting CSV for ${targetMonth}`}
+                  </button>
+                  <p className="text-sm text-gray-600 mt-2">
+                    This will merge all ready property lists into one accounting CSV, filtering reservations for {targetMonth}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Airbnb Section (Optional) */}
+          <div className="border-t-4 border-purple-600 bg-white rounded-lg shadow p-6">
+            <h2 className="text-2xl font-semibold mb-4 text-purple-600">
+              Airbnb Reservations (Optional)
+            </h2>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Airbnb Reservations CSV
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleAirbnbFileUpload}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Upload Airbnb CSV export (will use same target month and start belegnr as set above)
+              </p>
+              
+              {airbnbCsvFile && (
+                <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
+                  <p className="text-sm text-green-700">
+                    <strong>Airbnb:</strong> {airbnbCsvFile.name} ({(airbnbCsvFile.size / 1024).toFixed(1)} KB)
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Messages */}
+          {bookingMessage && (
+            <div className={`p-4 rounded-lg mb-6 ${
+              bookingMessage.includes('Error') || bookingMessage.includes('error') 
+                ? 'bg-red-50 text-red-700 border border-red-200' 
+                : bookingMessage.includes('successfully')
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'bg-blue-50 text-blue-700 border border-blue-200'
+            }`}>
+              {bookingMessage}
+            </div>
+          )}
+
+          {/* Instructions */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-gray-900 mb-3">How It Works:</h4>
+            <div className="text-xs text-gray-600 space-y-2">
+              <p><strong>Global Settings:</strong> Set one target month and start belegnr that applies to all properties and platforms (Booking.com + Airbnb).</p>
+              <p><strong>Property Uploads:</strong> Upload multiple CSV files per property. The system will extract only reservations from the specified target month.</p>
+              <p><strong>Airbnb Processing:</strong> Upload single Airbnb CSV file - same target month filtering and belegnr sequence applies.</p>
+              <p><strong>Month Filtering:</strong> All uploaded files (multiple per property) will be filtered to only include reservations with checkout dates in the target month.</p>
+              <p><strong>Voucher Numbering:</strong> Sequential numbering starts from the specified belegnr and continues across all properties and platforms.</p>
+              <p><strong>Output Format:</strong> konto, belegnr, belegdat, symbol, betrag, steuer, text</p>
+              <p><strong>Tax Calculation:</strong> netto = brutto ÷ 1.132, VAT = netto × 10%, City Tax = netto × 3.2%</p>
+              <p><strong>Per Reservation:</strong> 3 rows (Revenue 200000, Net Revenue 8001 with VAT, City Tax 8003)</p>
+            </div>
+            
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <h5 className="text-sm font-medium text-gray-900 mb-2">Property Code Mapping:</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600">
+                <div>
+                  <p><strong>Booking.com:</strong></p>
+                  {loadingProperties ? (
+                    <div className="text-xs text-gray-500 mt-1">Loading property mappings...</div>
+                  ) : (
+                    <ul className="mt-1 space-y-1">
+                      {properties.map((property) => (
+                        <li key={property.id}>• {property.name} → {property.invoicePrefix}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <p><strong>Airbnb:</strong></p>
+                  <ul className="mt-1 space-y-1">
+                    <li>• Property name will be detected from CSV and mapped to prefix</li>
+                    <li>• Output uses prefix (e.g., KLIE) not full name</li>
+                    <li>• Text column format: &quot;(belegnr) (prefix) (reservationNumber) (guestName) Booking.com&quot;</li>
+                    <li>• Example: &quot;2251 KLIE 6903494474 John Doe Booking.com&quot;</li>
+                  </ul>
                 </div>
               </div>
             </div>

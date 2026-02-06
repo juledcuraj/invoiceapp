@@ -445,7 +445,16 @@ export function getLocationShort(propertyName: string, source: 'Booking.com' | '
     'Home Sweet Home - Stephansdom II': 'BM',
     'Margot': 'KLIE',
     'Denube Suites': 'LAMM',
-    'Céleste Suites': 'ZIMM'
+    'Céleste Suites': 'ZIMM',
+    // Direct property prefix mapping (for when property name is set to the prefix)
+    'BMD01': 'BMD01',
+    'BMD02': 'BMD02', 
+    'BMD03': 'BMD03',
+    'BMD04': 'BMD04',
+    'BMD05': 'BMD05',
+    'BMD06': 'BMD06',
+    'BMD07': 'BMD07',
+    'BMD08': 'BMD08'
   };
   
   // Check exact match first
@@ -515,8 +524,7 @@ export function convertToUnifiedReservations(
 export function generateAccountingCSV(
   unifiedReservations: UnifiedReservation[],
   startBelegnr: number,
-  useCommaDecimal: boolean = false,
-  selectedProperty?: string
+  useCommaDecimal: boolean = false
 ): string {
   const accountingRows: AccountingRow[] = [];
   let currentBelegnr = startBelegnr;
@@ -537,8 +545,10 @@ export function generateAccountingCSV(
     const belegnr = currentBelegnr.toString();
     const belegdat = formatDate(reservation.departure);
     const taxes = calculateAccountingTaxes(reservation.totalPayment);
-    // Use selected property prefix if provided, otherwise fall back to property name mapping
-    const propertyCode = selectedProperty || getLocationShort(reservation.propertyName, reservation.source);
+    
+    // Use the property name from the reservation (which is now set to the property prefix)
+    const propertyCode = getLocationShort(reservation.propertyName, reservation.source);
+    
     // Always use the prefix (propertyCode) in the text column, not the full property name
     const text = `${belegnr} ${propertyCode} ${reservation.reservationNumber || 'N/A'} ${reservation.bookerName} ${reservation.source}`;
     
