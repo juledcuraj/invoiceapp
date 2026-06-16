@@ -5,9 +5,44 @@ import archiver from 'archiver';
 import { format } from 'date-fns';
 import { Invoice, CSVRow, Property, Company, InvoiceGenerationResult } from './types';
 import { calculateTaxes, formatCurrency } from './tax-calculator';
-import { getNextInvoiceNumber } from './storage';
+import { getNextInvoiceNumber, getProperty } from './storage';
 
 const TEMPLATE_PATH = path.join(process.cwd(), 'templates', 'invoice-template.html');
+
+/**
+ * Clean HTML tags from text (for BMD-only mode missing data)
+ */
+function cleanHTML(text: string): string {
+  if (typeof text !== 'string') return '';
+  return text.replace(/<[^>]*>/g, '').trim();
+}
+
+/**
+ * Check if a value is a missing data placeholder from BMD-only mode
+ */
+function isMissingDataPlaceholder(value: any): boolean {
+  return typeof value === 'string' && value.includes('<span style="color: red;');
+}
+
+/**
+ * Get a safe date value, with fallback for BMD-only mode
+ */
+function getSafeDate(dateValue: any, fallback: Date = new Date()): Date {
+  if (isMissingDataPlaceholder(dateValue)) {
+    return fallback;
+  }
+  
+  const date = new Date(dateValue);
+  return isNaN(date.getTime()) ? fallback : date;
+}
+
+/**
+ * Safe date formatting that handles invalid dates
+ */
+function formatSafeDate(dateValue: any, formatString: string, fallback: Date = new Date()): string {
+  const safeDate = getSafeDate(dateValue, fallback);
+  return format(safeDate, formatString);
+}
 
 async function loadInvoiceTemplate(): Promise<string> {
   try {
@@ -23,24 +58,63 @@ function createInvoiceData(
   company: Company,
   invoiceNumber: string
 ): Invoice {
-  const checkInDate = new Date(csvRow.checkInDate);
-  const checkOutDate = new Date(csvRow.checkOutDate);
+  // Handle BMD-only mode with missing dates - improved logic for checkout-only scenarios
+  const today = new Date();
+  
+  // For BMD-only mode: if we only have checkout date (documentDate), estimate check-in
+  let checkInDate, checkOutDate;
+  
+  if (isMissingDataPlaceholder(csvRow.checkInDate) && csvRow.documentDate) {
+    // BMD-only: Use documentDate as checkout, estimate check-in based on typical stay
+    checkOutDate = getSafeDate(csvRow.documentDate, today);
+    
+    // Estimate check-in: assume 1-2 nights (default 1 night for city breaks)
+    const estimatedNights = 1; // Conservative estimate for BMD-only
+    checkInDate = new Date(checkOutDate.getTime() - estimatedNights * 24 * 60 * 60 * 1000);
+    
+    console.log(`BMD-only date estimation: checkout=${format(checkOutDate, 'yyyy-MM-dd')}, checkin=${format(checkInDate, 'yyyy-MM-dd')} (${estimatedNights} nights)`);
+  } else {
+    // Normal mode or BMD with proper dates
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    checkInDate = getSafeDate(csvRow.checkInDate, yesterday);
+    checkOutDate = getSafeDate(csvRow.checkOutDate, today);
+  }
   const invoiceDate = format(checkOutDate, 'yyyy-MM-dd'); // Use checkout date as invoice date
   
-  // Calculate nights if not provided
+  // Calculate nights if not provided or if using fallback dates
   let nights = csvRow.nights;
-  if (!nights) {
+  if (!nights || isMissingDataPlaceholder(nights)) {
     const diffTime = checkOutDate.getTime() - checkInDate.getTime();
-    nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    nights = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   }
 
-  // Calculate taxes
-  const amounts = calculateTaxes(
-    csvRow.amountPaidGross,
-    property.vatRate,
-    property.cityTaxRate,
-    property.cityTaxHandling
-  );
+  // Use BMD amounts if available, otherwise calculate taxes
+  let amounts;
+  if (
+    csvRow.amountPaidNet !== undefined &&
+    csvRow.vatAmount !== undefined &&
+    csvRow.cityTaxAmount !== undefined
+  ) {
+    // BMD-only mode: use pre-calculated amounts from BMD with correct structure
+    const totalAmount = csvRow.amountPaidGross; // BMD gross is the total
+    amounts = {
+      netAmount: csvRow.amountPaidNet,
+      vatAmount: csvRow.vatAmount,
+      grossAmount: csvRow.amountPaidGross,
+      cityTaxAmount: csvRow.cityTaxAmount,
+      totalAmount: totalAmount,
+      vatRate: property.vatRate,
+      cityTaxRate: property.cityTaxRate
+    };
+  } else {
+    // Normal mode: calculate taxes
+    amounts = calculateTaxes(
+      csvRow.amountPaidGross,
+      property.vatRate,
+      property.cityTaxRate,
+      property.cityTaxHandling
+    );
+  }
 
   const invoice: Invoice = {
     invoiceNumber,
@@ -48,22 +122,22 @@ function createInvoiceData(
     property,
     company,
     guest: {
-      name: csvRow.guestName,
-      address: csvRow.guestAddress,
-      country: csvRow.country,
+      name: cleanHTML(csvRow.guestName),
+      address: cleanHTML(csvRow.guestAddress || ''),
+      country: cleanHTML(csvRow.country || ''),
     },
     service: {
       description: 'Beherbergung / Nächtigung',
       period: `${format(checkInDate, 'dd.MM.yyyy')} - ${format(checkOutDate, 'dd.MM.yyyy')}`,
-      checkInDate: csvRow.checkInDate,
-      checkOutDate: csvRow.checkOutDate,
+      checkInDate: format(checkInDate, 'yyyy-MM-dd'), // Store as safe formatted string
+      checkOutDate: format(checkOutDate, 'yyyy-MM-dd'), // Store as safe formatted string
       nights,
     },
     amounts: {
       ...amounts,
       currency: csvRow.currency,
     },
-    reservationId: csvRow.reservationId,
+    reservationId: cleanHTML(csvRow.reservationId),
   };
 
   return invoice;
@@ -91,7 +165,7 @@ function renderInvoiceHTML(invoice: Invoice, template: string): string {
     
     // Invoice details
     .replace(/{{invoice\.number}}/g, invoice.invoiceNumber)
-    .replace(/{{invoice\.date}}/g, format(new Date(invoice.invoiceDate), 'dd.MM.yyyy'))
+    .replace(/{{invoice\.date}}/g, formatSafeDate(invoice.invoiceDate, 'dd.MM.yyyy'))
     
     // Guest details
     .replace(/{{guest\.name}}/g, invoice.guest.name)
@@ -189,11 +263,11 @@ function generateSummaryCSV(invoices: Invoice[]): string {
 
   const rows = invoices.map(invoice => [
     invoice.invoiceNumber,
-    format(new Date(invoice.invoiceDate), 'dd.MM.yyyy'),
+    formatSafeDate(invoice.invoiceDate, 'dd.MM.yyyy'),
     invoice.reservationId,
     invoice.guest.name,
-    format(new Date(invoice.service.checkInDate), 'dd.MM.yyyy'),
-    format(new Date(invoice.service.checkOutDate), 'dd.MM.yyyy'),
+    formatSafeDate(invoice.service.checkInDate, 'dd.MM.yyyy'),
+    formatSafeDate(invoice.service.checkOutDate, 'dd.MM.yyyy'),
     invoice.service.nights?.toString() || '1',
     invoice.amounts.netAmount.toFixed(2),
     invoice.amounts.vatAmount.toFixed(2),
@@ -221,13 +295,23 @@ export async function generateInvoices(
 
     for (const csvRow of csvRows) {
       try {
+        // Resolve property per row so a single combined run can include multiple properties correctly
+        let rowProperty = property;
+        const rowPropertyId = (csvRow as any).propertyId as string | undefined;
+        if (rowPropertyId && rowPropertyId !== property.id) {
+          const foundProperty = await getProperty(rowPropertyId);
+          if (foundProperty) {
+            rowProperty = foundProperty;
+          }
+        }
+
         // Use custom invoice number from BMD List if available, otherwise generate new one
         const invoiceNumber = csvRow.invoiceNumber 
           ? csvRow.invoiceNumber 
-          : await getNextInvoiceNumber(property.id, csvRow.checkOutDate);
+          : await getNextInvoiceNumber(rowProperty.id, csvRow.checkOutDate);
         
         // Create invoice data
-        const invoice = createInvoiceData(csvRow, property, company, invoiceNumber);
+        const invoice = createInvoiceData(csvRow, rowProperty, company, invoiceNumber);
         invoices.push(invoice);
 
         // Generate PDF
@@ -263,7 +347,7 @@ export async function generateInvoices(
     let filename = property.invoicePrefix;
     if (invoices.length > 0) {
       // Use the first invoice's checkout date to determine year-month
-      const firstCheckout = new Date(invoices[0].service.checkOutDate);
+      const firstCheckout = getSafeDate(invoices[0].service.checkOutDate, new Date());
       const year = firstCheckout.getFullYear();
       const month = String(firstCheckout.getMonth() + 1).padStart(2, '0');
       filename = `${property.invoicePrefix}-${year}-${month}`;

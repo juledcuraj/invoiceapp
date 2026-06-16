@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateInvoices } from '@/lib/invoice-generator'
-import { getProperty, getPropertyByPrefix, getCompany } from '@/lib/storage'
+import { getProperty, getPropertyByPrefix, getCompany, getProperties } from '@/lib/storage'
 import { CSVRowSchema } from '@/lib/types'
 
 export async function POST(request: NextRequest) {
@@ -19,58 +19,38 @@ export async function POST(request: NextRequest) {
       return new NextResponse('Company not configured', { status: 400 })
     }
 
-    // Group CSV rows by property ID  
-    const rowsByProperty = new Map<string, any[]>()
-    for (const row of csvRows) {
-      if (!row.propertyId) {
-        console.warn('Row missing propertyId:', row)
-        continue
-      }
-      
-      if (!rowsByProperty.has(row.propertyId)) {
-        rowsByProperty.set(row.propertyId, [])
-      }
-      rowsByProperty.get(row.propertyId)!.push(row)
-    }
+    // Preserve incoming row order from parser (already aligned to BMD order)
+    const orderedRows = [...csvRows]
 
-    // Process each property group
-    const allResults: any[] = []
-    const allErrors: string[] = []
-    
-    for (const [propertyId, propertyRows] of Array.from(rowsByProperty.entries())) {
-      try {
-        // Get property data - try by ID first, then by prefix
-        let property = await getProperty(propertyId)
-        if (!property) {
-          property = await getPropertyByPrefix(propertyId)
-        }
-        if (!property) {
-          allErrors.push(`Property ${propertyId} not found`)
-          continue
-        }
+    // Validate rows
+    const validatedRows = orderedRows.map((row: any) => CSVRowSchema.parse(row))
 
-        // Validate CSV rows for this property
-        const validatedRows = propertyRows.map((row: any) => CSVRowSchema.parse(row))
-
-        // Generate invoices for this property
-        const result = await generateInvoices(validatedRows, property, company, format)
-        
-        if (result.success) {
-          allResults.push(result)
-        } else {
-          allErrors.push(`${property.name}: ${result.errors.join(', ')}`)
+    // Resolve a base property once; per-row property is resolved inside generateInvoices
+    let baseProperty = await getProperty('default')
+    if (!baseProperty && validatedRows.length > 0) {
+      const firstPropertyId = (validatedRows[0] as any).propertyId
+      if (firstPropertyId) {
+        baseProperty = await getProperty(firstPropertyId)
+        if (!baseProperty) {
+          baseProperty = await getPropertyByPrefix(firstPropertyId)
         }
-      } catch (error) {
-        allErrors.push(`Property ${propertyId}: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
     }
-
-    if (allResults.length === 0) {
-      return new NextResponse(`Invoice generation failed: ${allErrors.join(', ')}`, { status: 500 })
+    if (!baseProperty) {
+      const properties = await getProperties()
+      if (properties.length > 0) {
+        baseProperty = properties[0]
+      }
+    }
+    if (!baseProperty) {
+      return new NextResponse('No properties configured', { status: 500 })
     }
 
-    // For now, return the first result (we can enhance this later to merge multiple properties)
-    const result = allResults[0]
+    // Generate all invoices in one run/file
+    const result = await generateInvoices(validatedRows, baseProperty, company, format)
+    if (!result.success) {
+      return new NextResponse(`Invoice generation failed: ${result.errors.join(', ')}`, { status: 500 })
+    }
 
     if (format === 'combined') {
       // Return single combined PDF

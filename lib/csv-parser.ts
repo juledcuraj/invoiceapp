@@ -1,6 +1,57 @@
-import csv from 'csv-parser';
-import { Readable } from 'stream';
 import { CSVRow, CSVRowSchema, CSVParseResult } from './types';
+
+/**
+ * Custom CSV parser to replace csv-parser dependency
+ */
+function parseCSVContent(content: string): any[] {
+  const lines = content.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length < 2) return [];
+  
+  const headers = parseCSVLine(lines[0]);
+  const rows: any[] = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.length === 0) continue;
+    
+    const row: any = {};
+    headers.forEach((header, index) => {
+      row[header.trim()] = values[index] || '';
+    });
+    rows.push(row);
+  }
+  
+  return rows;
+}
+
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let i = 0;
+  
+  while (i < line.length) {
+    const char = line[i];
+    
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 2;
+        continue;
+      }
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+    i++;
+  }
+  
+  result.push(current.trim());
+  return result;
+}
 
 // Column mapping for Booking.com CSV formats (including payout format)
 const COLUMN_MAPPINGS = {
@@ -157,112 +208,116 @@ export async function parseCSV(fileBuffer: Buffer): Promise<CSVParseResult> {
   const validRows: CSVRow[] = [];
   const invalidRows: { row: any; errors: string[] }[] = [];
   
-  return new Promise((resolve, reject) => {
-    const stream = Readable.from(fileBuffer);
-    let headers: string[] = [];
-    let columnMapping: Record<string, string> = {};
-    let isFirstRow = true;
+  try {
+    const content = fileBuffer.toString('utf-8');
+    const rows = parseCSVContent(content);
     
-    stream
-      .pipe(csv())
-      .on('headers', (headerList: string[]) => {
-        headers = headerList;
+    if (rows.length === 0) {
+      return {
+        validRows: [],
+        invalidRows: [],
+        summary: { total: 0, valid: 0, invalid: 0 }
+      };
+    }
+    
+    // Get headers from first parsed row
+    const headers = Object.keys(rows[0]);
+    
+    // Create column mapping
+    const columnMapping: Record<string, string> = {};
+    for (const [fieldName, possibleNames] of Object.entries(COLUMN_MAPPINGS)) {
+      const foundColumn = findColumnName(headers, possibleNames);
+      if (foundColumn) {
+        columnMapping[fieldName] = foundColumn;
+      }
+    }
+    
+    // Process each row
+    for (const rawRow of rows) {
+      try {
+        // Skip non-reservation rows (e.g., other types in payout CSV)
+        if (rawRow.Type && rawRow.Type !== 'Reservation') {
+          continue;
+        }
+
+        const mappedRow = mapRow(rawRow, columnMapping);
         
-        // Create column mapping
-        for (const [fieldName, possibleNames] of Object.entries(COLUMN_MAPPINGS)) {
-          const foundColumn = findColumnName(headers, possibleNames);
-          if (foundColumn) {
-            columnMapping[fieldName] = foundColumn;
-          }
-        }
-      })
-      .on('data', (rawRow) => {
-        if (isFirstRow) {
-          isFirstRow = false;
-          // Skip if it looks like a header row repeated
-          const firstValue = Object.values(rawRow)[0]?.toString().toLowerCase();
-          if (firstValue && headers.some(h => h.toLowerCase().includes(firstValue))) {
-            return;
-          }
-        }
-
-        try {
-          // Skip non-reservation rows (e.g., other types in payout CSV)
-          if (rawRow.Type && rawRow.Type !== 'Reservation') {
-            return;
-          }
-
-          const mappedRow = mapRow(rawRow, columnMapping);
-          
-          // Skip negative amounts (refunds/cancellations)
-          const amount = parseAmount(mappedRow.amountPaidGross?.toString() || '0');
-          if (amount <= 0) {
-            invalidRows.push({
-              row: rawRow,
-              errors: ['Skipped: Negative amount (likely refund/cancellation)']
-            });
-            return;
-          }
-
-          const validRow = validateAndTransformRow(mappedRow);
-          validRows.push(validRow);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+        // Skip negative amounts (refunds/cancellations)
+        const amount = parseAmount(mappedRow.amountPaidGross?.toString() || '0');
+        if (amount <= 0) {
           invalidRows.push({
             row: rawRow,
-            errors: [errorMessage]
+            errors: ['Skipped: Negative amount (likely refund/cancellation)']
           });
+          continue;
         }
-      })
-      .on('end', () => {
-        resolve({
-          validRows,
-          invalidRows,
-          summary: {
-            total: validRows.length + invalidRows.length,
-            valid: validRows.length,
-            invalid: invalidRows.length,
-          }
+
+        const validRow = validateAndTransformRow(mappedRow);
+        validRows.push(validRow);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+        invalidRows.push({
+          row: rawRow,
+          errors: [errorMessage]
         });
-      })
-      .on('error', reject);
-  });
+      }
+    }
+    
+    return {
+      validRows,
+      invalidRows,
+      summary: {
+        total: validRows.length + invalidRows.length,
+        valid: validRows.length,
+        invalid: invalidRows.length,
+      }
+    };
+  } catch (error) {
+    throw new Error(`CSV parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
-export function generateColumnMappingReport(fileBuffer: Buffer): Promise<{
+export async function generateColumnMappingReport(fileBuffer: Buffer): Promise<{
   detectedHeaders: string[];
   suggestedMapping: Record<string, string | null>;
   unmappedHeaders: string[];
 }> {
-  return new Promise((resolve, reject) => {
-    const stream = Readable.from(fileBuffer);
+  try {
+    const content = fileBuffer.toString('utf-8');
+    const rows = parseCSVContent(content);
     
-    stream
-      .pipe(csv())
-      .on('headers', (headers: string[]) => {
-        const suggestedMapping: Record<string, string | null> = {};
-        const unmappedHeaders: string[] = [];
-        
-        // Find mappings for known fields
-        for (const [fieldName, possibleNames] of Object.entries(COLUMN_MAPPINGS)) {
-          const foundColumn = findColumnName(headers, possibleNames);
-          suggestedMapping[fieldName] = foundColumn;
-        }
-        
-        // Find unmapped headers
-        const mappedColumns = Object.values(suggestedMapping).filter(Boolean);
-        for (const header of headers) {
-          if (!mappedColumns.includes(header)) {
-            unmappedHeaders.push(header);
-          }
-        }
-        
-        resolve({
-          detectedHeaders: headers,
-          suggestedMapping,
-          unmappedHeaders
-        });
-      })
-      .on('error', reject);
-  });
+    if (rows.length === 0) {
+      return {
+        detectedHeaders: [],
+        suggestedMapping: {},
+        unmappedHeaders: []
+      };
+    }
+    
+    const headers = Object.keys(rows[0]);
+    const suggestedMapping: Record<string, string | null> = {};
+    const unmappedHeaders: string[] = [];
+    
+    // Find mappings for known fields
+    for (const [fieldName, possibleNames] of Object.entries(COLUMN_MAPPINGS)) {
+      const foundColumn = findColumnName(headers, possibleNames);
+      suggestedMapping[fieldName] = foundColumn;
+    }
+    
+    // Find unmapped headers
+    const mappedColumns = Object.values(suggestedMapping).filter(Boolean);
+    for (const header of headers) {
+      if (!mappedColumns.includes(header)) {
+        unmappedHeaders.push(header);
+      }
+    }
+    
+    return {
+      detectedHeaders: headers,
+      suggestedMapping,
+      unmappedHeaders
+    };
+  } catch (error) {
+    throw new Error(`Column mapping analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }

@@ -14,7 +14,7 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             {/* Accounting Converter - First */}
             <Link href="/booking-to-accounting" className="block">
@@ -26,16 +26,16 @@ export default function Home() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-xl font-semibold text-gray-900">Accounting Converter: Booking + Airbnb → Accounting CSV</h3>
-                    <p className="text-gray-600">Convert reservations to accounting import format</p>
+                    <h3 className="text-xl font-semibold text-gray-900">Accounting Converter</h3>
+                    <p className="text-gray-600 text-sm">Booking + Airbnb → Accounting CSV</p>
                   </div>
                 </div>
                 
                 <div className="text-sm text-gray-500 mb-4">
-                  <p>• Upload Booking.com and/or Airbnb CSV files</p>
+                  <p>• Upload reservation CSV files</p>
                   <p>• Merge and sort by departure date</p>
-                  <p>• Generate 3 accounting rows per reservation</p>
-                  <p>• Austrian tax calculations (VAT + City Tax)</p>
+                  <p>• Generate accounting rows</p>
+                  <p>• Austrian tax calculations</p>
                 </div>
                 
                 <div className="flex justify-end">
@@ -56,21 +56,51 @@ export default function Home() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-xl font-semibold text-gray-900">Invoice Converter: BMD + Reservations → Invoice PDF</h3>
-                    <p className="text-gray-600">Generate professional PDF invoices from BMD and reservation data</p>
+                    <h3 className="text-xl font-semibold text-gray-900">BMD Invoice Converter</h3>
+                    <p className="text-gray-600 text-sm">BMD + Reservations → PDF</p>
                   </div>
                 </div>
                 
                 <div className="text-sm text-gray-500 mb-4">
-                  <p>• Upload BMD List + Reservations CSV files</p>
-                  <p>• Match invoice numbers with guest data</p>
-                  <p>• Generate branded PDF invoices</p>
-                  <p>• Handles semicolon/comma formats</p>
+                  <p>• Upload BMD + Reservations</p>
+                  <p>• Match invoice numbers</p>
+                  <p>• Generate branded PDFs</p>
+                  <p>• Smart validation system</p>
                 </div>
                 
                 <div className="flex justify-end">
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                     CSV to PDF
+                  </span>
+                </div>
+              </div>
+            </Link>
+
+            {/* Card Matching - Third */}
+            <Link href="/card-matching" className="block">
+              <div className="border-t-4 border-purple-600 bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
+                <div className="flex items-center mb-4">
+                  <div className="flex-shrink-0">
+                    <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8M8 12h8M8 17h4M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-xl font-semibold text-gray-900">Card Matching</h3>
+                    <p className="text-gray-600 text-sm">BMD + Reservations → Manual Match → PDF</p>
+                  </div>
+                </div>
+
+                <div className="text-sm text-gray-500 mb-4">
+                  <p>• Upload BMD + reservation files</p>
+                  <p>• Manually pair BMD ↔ reservation cards</p>
+                  <p>• Review matches before generating</p>
+                  <p>• Generate accurate PDF invoices</p>
+                </div>
+
+                <div className="flex justify-end">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                    Manual Match
                   </span>
                 </div>
               </div>
@@ -91,22 +121,30 @@ export default function Home() {
 
           {/* Quick Stats */}
           <div className="mt-12 bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Supported Formats</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Available Processing Options</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <h4 className="font-medium text-gray-700 mb-2">Input Formats</h4>
+                <h4 className="font-medium text-blue-700 mb-2">🧮 Accounting Converter</h4>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• Booking.com reservations export</li>
-                  <li>• Airbnb reservations CSV</li>
-                  <li>• Guest data CSV files</li>
+                  <li>• Booking.com + Airbnb CSV</li>
+                  <li>• → Accounting import format</li>
+                  <li>• Austrian tax compliance</li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-medium text-gray-700 mb-2">Output Formats</h4>
+                <h4 className="font-medium text-green-700 mb-2">📄 BMD Invoice System</h4>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• PDF invoices with company branding</li>
-                  <li>• Accounting CSV (semicolon-separated)</li>
-                  <li>• Austrian tax compliance format</li>
+                  <li>• BMD file + Reservations</li>
+                  <li>• → Automatic matching</li>
+                  <li>• → Professional PDF invoices</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-medium text-purple-700 mb-2">🃏 Card Matching</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• BMD + reservation files</li>
+                  <li>• → Manual card-by-card pairing</li>
+                  <li>• → Accurate PDF invoices</li>
                 </ul>
               </div>
             </div>
